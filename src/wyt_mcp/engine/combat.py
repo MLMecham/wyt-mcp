@@ -40,6 +40,11 @@ NPC_TIERS = {
     "strong":  {"hp": 48, "str": 10, "def": 6, "spd": 6, "xp": 35, "gold": 25},
 }
 
+# §16: human town enemies (killing one when flee was an option = brutality);
+# den crews additionally hearten Garrick when beaten — the watch isn't alone.
+TOWN_HUMANS = {"cutpurse", "mad_penitent", "drunkard", "den_thug", "den_keeper"}
+DEN_CREW = {"den_thug", "den_keeper"}
+
 _rng: random.Random | None = None
 
 
@@ -331,6 +336,17 @@ def _finish(outcome: str, log: list[str]) -> dict:
             notes += dungeon.mark_cleared(row["room_id"])
         if row["npc_id"] is not None:
             notes += _npc_killed(row)
+        if row["enemy_key"] in TOWN_HUMANS and row["npc_id"] is None:
+            # Nameless, broken, and human — and flee was on the table (§16).
+            player.add_conduct(brutality=1)
+            notes.append("They were one of the town's broken, not a monster. "
+                         "(+1 brutality)")
+        if row["enemy_key"] in DEN_CREW:
+            town.garrick_heartened(
+                2, "Word reached the watch house: someone bloodied the den crews.")
+            g = db.game()
+            if row["enemy_key"] == "den_keeper" and g["area"] == "town":
+                notes += town.loot_den(g["location"])
         out["notes"] = notes
         log.append(f"{row['enemy_name']} is dead.")
     elif outcome == "fled":
@@ -353,11 +369,15 @@ def _npc_killed(row) -> list[str]:
     n = db.npc_by_id(row["npc_id"])
     g = db.game()
     db.update("npcs", n["id"], dead_this_loop=1)
+    # The signature mechanic: the victim wakes up remembering (§ Premise).
+    town.add_memory(n["key"], "You killed them. They woke up.", "witnessed", -12)
     witnesses = [k for k in town.witnesses_at(n["location"]) if k != n["key"]]
     town.broadcast(witnesses, f"They watched you kill {n['name']}.", -8)
     player.add_conduct(brutality=2)
     player.change_resolve(-8, f"you killed {n['name']}")
     notes = [f"{n['name']} is dead. Until midnight, anyway."]
+    if n["shop"]:
+        notes += town.shopkeeper_murdered(n)
     if witnesses:
         notes.append(f"Witnessed by: {', '.join(witnesses)}.")
     if n["is_wizard"]:

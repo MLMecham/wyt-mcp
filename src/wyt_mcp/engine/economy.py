@@ -20,9 +20,71 @@ def price_for(base_price: int, npc) -> dict:
     return {"price": max(1, int(base_price * mult)), "fear_priced": fear}
 
 
+SELL_RATE = 0.5          # matching shop pays half an item's current price
+WRONG_SHOP_RATE = 0.25   # the wrong counter pays a quarter, if it pays at all
+FENCE_MARKUP = 2.5       # dens sell last night's takings back at extortion
+
+
+def _item_index() -> dict:
+    return {i["key"]: i
+            for i in db.load_data("gear") + db.load_data("consumables")}
+
+
 def shop_stock(npc_key: str) -> list[dict]:
-    items = db.load_data("gear") + db.load_data("consumables")
-    return [i for i in items if i.get("sold_by") == npc_key]
+    """What's on this merchant's shelves right now — shop_stock rows joined
+    with item data. Robberies (§16) may have emptied the good shelf."""
+    n = db.npc(npc_key)
+    if n is None:
+        return []
+    idx = _item_index()
+    rows = db.conn().execute(
+        "SELECT * FROM shop_stock WHERE location_key=?", (n["location"],)
+    ).fetchall()
+    return [dict(idx[r["item_key"]], qty=r["qty"], premium=bool(r["premium"]))
+            for r in rows if r["item_key"] in idx]
+
+
+def take_from_stock(location_key: str, item_key: str) -> bool:
+    """Decrement a stock row after a sale; False if it isn't on the shelf."""
+    c = db.conn()
+    row = c.execute(
+        "SELECT id, qty FROM shop_stock WHERE location_key=? AND item_key=?",
+        (location_key, item_key),
+    ).fetchone()
+    if row is None:
+        return False
+    if row["qty"] > 1:
+        c.execute("UPDATE shop_stock SET qty=qty-1 WHERE id=?", (row["id"],))
+    else:
+        c.execute("DELETE FROM shop_stock WHERE id=?", (row["id"],))
+    c.commit()
+    return True
+
+
+def sell_price(item_key: str, npc) -> dict:
+    """Selling: the right counter pays half; the wrong one a quarter — and
+    Wendel only deals in his own kind of strange (§8/§16)."""
+    from wyt_mcp.engine import town
+
+    item = _item_index().get(item_key)
+    if item is None:
+        return {"error": f"'{item_key}' is not a sellable item."}
+    loc = town.location(npc["location"])
+    if loc is None or loc["kind"] != "shop":
+        return {"refused": True, "note": f"{npc['name']} doesn't buy things."}
+    match = item.get("shop") == loc["shop_tag"]
+    if not match and loc["shop_tag"] == "magic":
+        return {"refused": True,
+                "note": "Wendel glances at it, then back at his chickens."}
+    base = price_for(item["price"], npc)["price"]
+    rate = SELL_RATE if match else WRONG_SHOP_RATE
+    return {"price": max(1, int(base * rate)), "wrong_shop": not match}
+
+
+def fence_price(item_key: str, loop_count: int) -> int:
+    """Buying your own town's goods back from the den that stole them."""
+    item = _item_index()[item_key]
+    return max(1, int(item["price"] * gold_multiplier(loop_count) * FENCE_MARKUP))
 
 
 def roll_gold_acceptance(loop_count: int, rng: random.Random) -> list[str]:

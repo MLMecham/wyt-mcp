@@ -161,6 +161,60 @@ def spend_point(stat: str) -> dict:
             "points_left": p["stat_points"] - 1}
 
 
+def equip(item_key: str) -> dict:
+    """Equip gear; one item per slot (weapon / armor / accessory — §16)."""
+    gear = gear_index()
+    if item_key not in gear:
+        return {"error": f"'{item_key}' is not equippable gear."}
+    c = db.conn()
+    row = c.execute(
+        "SELECT id FROM inventory WHERE item_key=?", (item_key,)
+    ).fetchone()
+    if row is None:
+        return {"error": "You don't have that."}
+    slot = gear[item_key]["slot"]
+    swapped = None
+    for r in c.execute("SELECT item_key FROM inventory WHERE equipped=1").fetchall():
+        if r["item_key"] != item_key and gear.get(r["item_key"], {}).get("slot") == slot:
+            swapped = gear[r["item_key"]]["name"]
+            c.execute("UPDATE inventory SET equipped=0 WHERE item_key=?",
+                      (r["item_key"],))
+    c.execute("UPDATE inventory SET equipped=1 WHERE id=?", (row["id"],))
+    c.commit()
+    out = {"ok": True, "equipped": gear[item_key]["name"], "slot": slot}
+    if swapped:
+        out["unequipped"] = swapped
+    return out
+
+
+def use_consumable(item_key: str) -> dict:
+    """Out-of-combat item use: heal/mana/resolve, day buffs, the town map."""
+    from wyt_mcp.engine import effects, town  # function-local: avoids cycles
+
+    cons = consumable_index()
+    if item_key not in cons:
+        return {"error": f"'{item_key}' is not usable."}
+    if not remove_item(item_key):
+        return {"error": "You don't have that."}
+    item, notes = cons[item_key], []
+    if item.get("heal"):
+        heal(hp=item["heal"])
+        notes.append(f"+{item['heal']} HP")
+    if item.get("mana"):
+        heal(mp=item["mana"])
+        notes.append(f"+{item['mana']} MP")
+    if item.get("resolve"):
+        change_resolve(item["resolve"])
+        notes.append(f"+{item['resolve']} resolve")
+    if item.get("buff"):
+        b = item["buff"]
+        effects.add("player", b["kind"], b["value"], rounds=None)
+        notes.append(f"{b['kind']} {b['value']} until you sleep")
+    if item.get("reveal_town"):
+        notes.append(town.reveal_map())
+    return {"ok": True, "used": item["name"], "effects": notes}
+
+
 def add_item(item_key: str, qty: int = 1) -> None:
     c = db.conn()
     row = c.execute(

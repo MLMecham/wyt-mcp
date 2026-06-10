@@ -1,9 +1,96 @@
 [
-  { "key": "potion",        "name": "Healing Potion",  "heal": 20, "price": 15, "sold_by": "petra" },
-  { "key": "strong_potion", "name": "Vitality Draught","heal": 50, "price": 40, "sold_by": "petra" },
-  { "key": "mana_draught",  "name": "Mana Draught",    "mana": 12, "price": 25, "sold_by": "petra" },
-  { "key": "bitter_tonic",  "name": "Bitter Tonic",    "heal": 10, "mana": 6, "price": 22, "sold_by": "petra" },
-  { "key": "ember_draught", "name": "Ember Draught",   "buff": { "kind": "damage_mult", "value": 1.25 }, "price": 35, "sold_by": "petra" },
-  { "key": "warm_bread",    "name": "Warm Bread",      "heal": 5,  "resolve": 1, "price": 3,  "sold_by": "sela" },
-  { "key": "honey_cake",    "name": "Honey Cake",      "resolve": 2, "price": 8,  "sold_by": "sela" }
+  {
+    "key": "potion",
+    "name": "Healing Potion",
+    "heal": 20,
+    "price": 15,
+    "shop": "apothecary"
+  },
+  {
+    "key": "strong_potion",
+    "name": "Vitality Draught",
+    "heal": 50,
+    "price": 40,
+    "shop": "apothecary"
+  },
+  {
+    "key": "mana_draught",
+    "name": "Mana Draught",
+    "mana": 12,
+    "price": 25,
+    "shop": "apothecary"
+  },
+  {
+    "key": "bitter_tonic",
+    "name": "Bitter Tonic",
+    "heal": 10,
+    "mana": 6,
+    "price": 22,
+    "shop": "apothecary"
+  },
+  {
+    "key": "ember_draught",
+    "name": "Ember Draught",
+    "buff": {
+      "kind": "damage_mult",
+      "value": 1.25
+    },
+    "price": 35,
+    "shop": "apothecary"
+  },
+  {
+    "key": "warm_bread",
+    "name": "Warm Bread",
+    "heal": 5,
+    "resolve": 1,
+    "price": 3,
+    "shop": "general"
+  },
+  {
+    "key": "honey_cake",
+    "name": "Honey Cake",
+    "resolve": 2,
+    "price": 8,
+    "shop": "general"
+  },
+  {
+    "key": "town_map",
+    "name": "A Map of the Town",
+    "reveal_town": true,
+    "price": 30,
+    "shop": "general"
+  },
+  {
+    "key": "wolfsblood_tonic",
+    "name": "Wolfsblood Tonic",
+    "buff": {
+      "kind": "damage_mult",
+      "value": 1.5
+    },
+    "price": 90,
+    "shop": "general",
+    "premium": true
+  },
+  {
+    "key": "ironbark_salve",
+    "name": "Ironbark Salve",
+    "buff": {
+      "kind": "defense_mult",
+      "value": 0.65
+    },
+    "price": 90,
+    "shop": "general",
+    "premium": true
+  },
+  {
+    "key": "ghostfoot_powder",
+    "name": "Ghostfoot Powder",
+    "buff": {
+      "kind": "speed_add",
+      "value": 3
+    },
+    "price": 80,
+    "shop": "general",
+    "premium": true
+  }
 ]

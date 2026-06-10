@@ -81,7 +81,34 @@ CREATE TABLE IF NOT EXISTS player (
     resolve INTEGER NOT NULL DEFAULT 100,
     brutality INTEGER NOT NULL DEFAULT 0,
     despair INTEGER NOT NULL DEFAULT 0,
-    tavern_rested_loop INTEGER NOT NULL DEFAULT 0
+    tavern_rested_loop INTEGER NOT NULL DEFAULT 0,
+    park_rested_loop INTEGER NOT NULL DEFAULT 0
+);
+
+-- §16: generated ONCE per save in new_game; loop resets never touch these.
+CREATE TABLE IF NOT EXISTS town_locations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL,              -- shop|tavern|chapel|landmark|den|park|alley|gate...
+    shop_tag TEXT,                   -- smith|apothecary|magic|general (shops only)
+    visited INTEGER NOT NULL DEFAULT 0,  -- town fog-of-war; pre-set for the local class
+    paired_den TEXT,                 -- general stores: key of the den that robs them
+    den_buff TEXT,                   -- dens: premium buff the gatekeeper drank tonight
+    risk_kind TEXT                   -- NULL | 'flat' (dens) | 'scaling' (alleys/park)
+);
+
+CREATE TABLE IF NOT EXISTS town_edges (
+    from_key TEXT NOT NULL,
+    to_key TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS shop_stock (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    location_key TEXT NOT NULL,      -- a shop, or a den holding stolen goods
+    item_key TEXT NOT NULL,
+    qty INTEGER NOT NULL DEFAULT 1,
+    premium INTEGER NOT NULL DEFAULT 0   -- what robberies move store -> den
 );
 
 CREATE TABLE IF NOT EXISTS inventory (
@@ -181,6 +208,7 @@ CREATE TABLE IF NOT EXISTS effects (
 TABLES = [
     "game", "player", "inventory", "npcs", "npc_statuses",
     "npc_memories", "rooms", "room_edges", "event_log", "combat", "effects",
+    "town_locations", "town_edges", "shop_stock",
 ]
 
 

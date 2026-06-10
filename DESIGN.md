@@ -73,7 +73,8 @@ wyt-mcp/
     ├── engine/
     │   ├── player.py    # stats, leveling, inventory, equip, resolve
     │   ├── combat.py    # attack resolution, dice, XP, loot, death, fast-forward logic
-    │   ├── town.py      # NPCs: sanity decay, disposition, gates, status rolls, memories
+    │   ├── town.py      # NPCs: sanity decay, disposition, gates, status rolls, memories;
+    │   │                #   town graph generation + fog-of-war + crime machine (§16)
     │   ├── economy.py   # price scaling, gold rot, barter gating
     │   ├── dungeon.py   # graph generation, movement validation, room events
     │   ├── days.py      # advance_loop, reset, overnight events
@@ -97,7 +98,8 @@ player      (id, name, class, level, xp,
              gold,
              str, def, spd, mag,                -- mag: magic power, scales spells
              resolve,                           -- 0–100: the player's own sanity (§9)
-             brutality, despair)                -- conduct counters feeding the breaking point (§9)
+             brutality, despair,                -- conduct counters feeding the breaking point (§9)
+             stat_points)                       -- banked points from leveling, spent via spend_point
 inventory   (id, item_key, equipped, qty)       -- item stats from data/gear.json
 npcs        (id, key, name, role, baseline_personality,   -- seeded from npcs.json
              sanity,            -- 0–100
@@ -117,6 +119,14 @@ npc_memories(id, npc_id, loop_count, event_text,
 rooms       (id, loop_count, floor, room_type,  -- enemy|trap|treasure|boss|empty|artifact
              cleared, visited, enemy_key)
 room_edges  (from_room, to_room, label)         -- the dungeon graph
+town_locations (id, key, name, kind,    -- shop|tavern|chapel|landmark|den|park|alley|gate...
+             shop_tag,                  -- smith|apothecary|magic|general|NULL (§16)
+             visited,                   -- town fog-of-war; pre-set for the local class
+             paired_den,                -- general stores only: key of the den that robs them
+             risk_kind)                 -- NULL | 'flat' (slums/dens) | 'scaling' (alleys/park)
+town_edges  (from_key, to_key)          -- generated ONCE per save (§16); never reset by loops
+shop_stock  (id, location_key, item_key, qty,
+             premium)                   -- premium rows are what robberies move store → den
 event_log   (id, loop_count, seq, text,
              tone)              -- optional: 'cruel'|'despairing'|'kind'|null — see §9
 ```
@@ -138,9 +148,11 @@ Thin wrappers in `server.py`; logic in `engine/`. Every state-changing tool retu
 | `new_game(name, class, skip_intro)` | Creates save. Classes from the original: warrior/mage/archer/ninja — each carries a backstory (local vs. outsider) that seeds starting NPC dispositions (§14). `skip_intro=True` starts at loop 2 with a "what you remember" recap packet, for replays. |
 | `get_state()` | Full rehydration packet: player (incl. resolve), loop, location, town summary, economy state. Called at session start so chat history isn't load-bearing. |
 | `recap()` | Narrative "previously on" packet built from `event_log`: last loop's events, open wounds, who hates you now. For resuming the game in a fresh chat session. |
-| `look()` | Server-rendered map (town or dungeon fog-of-war) + status bar + **legal exits/actions only**. |
+| `look()` | Server-rendered map (town **and** dungeon are both fog-of-war — §16) + status bar + **legal exits/actions only**. Unvisited town exits render as descriptions ("a street toward chimney smoke"), never names — §15 applies to geography too. |
 | `descend(floor)` | "You remember the way" — direct descent to any previously cleared floor +1 (§9). Validated against `max_floor_cleared`. |
-| `move(exit)` | Validates against `room_edges` / town locations. Invalid → error. Entering an uncleared enemy room auto-triggers the encounter. |
+| `move(exit)` | Validates against `room_edges` / `town_edges`. Invalid → error. Entering an uncleared enemy room auto-triggers the encounter. Transiting a town risk tile rolls the ambush chance (§16). |
+| `ask_directions(npc_key)` | Disposition-gated: a willing NPC reveals one unknown town location (weighted toward shops); withdrawn/hostile NPCs return the refusal packet. Feeds exploration into the social system (§16). |
+| `spend_point(stat)` | Spends one banked stat point (earned per level) on str/def/spd/mag. The GM prompt tells Claude to ask the player where it goes. |
 | `talk_to(npc_key)` | Returns the NPC packet (§6). Claude improvises the dialogue from it. Withdrawn NPCs return a refusal packet; missing NPCs return where they were last seen. |
 | `shop(npc_key)` / `buy(item)` / `sell(item)` | Gold/inventory math server-side, prices from `economy.py` (§8). Refuses if `will_trade` is false or the NPC no longer accepts gold. |
 | `attack(target, mode)` | Works on enemies **and NPCs**. `mode="auto"` or `"rounds"` — see §7. Player death → loop reset. NPC death → `dead_this_loop`, memory broadcast to witnesses, resolve cost. |
@@ -235,6 +247,10 @@ and madness are the only things the loop preserves.**
 - Late game, the real currencies are: gear, favors (memories of kindness), and fear
   (disposition + your kill record). A terrified merchant "trades" at extortion prices —
   which feeds the despot path (§9).
+- **Shop tags.** Every item carries a tag (`smith`/`apothecary`/`magic`/`general`). The
+  matching shop buys at the normal sell rate; the wrong shop buys at half that or refuses
+  outright (the chapel is not buying your daggers). Dens fence stolen goods back to you at
+  an extortion markup (§16).
 
 ## 9. The Loop, Resolve & Endings
 
@@ -249,13 +265,18 @@ A loop is one day. `advance_loop` runs, in order:
    directly to any floor at or below `max_floor_cleared + 1` (difficulty still re-scales).
    Player knowledge is the one thing the loop preserves; this makes it mechanical.
 3. Decay all NPC sanity; roll gate flips and status candidates; reprice the economy.
-4. Spread rumors from yesterday's events.
-5. Roll 0–2 **overnight events** from `events.json`, weighted by loop count — early loops
+4. **Run the robberies (§16):** Garrick's sanity tier is the crime valve. While he's
+   holding on, nothing; fraying, each general store is hit on a coin flip; unraveling or
+   gone, every store, every night — premium stock moves to each store's paired den, and the
+   den gatekeeper may consume one of the buffs. Irreversible in v1 once he's gone.
+5. Spread rumors from yesterday's events.
+6. Roll 0–2 **overnight events** from `events.json`, weighted by loop count — early loops
    are quiet; later: thefts (including from the player), fires, disappearances,
    **kidnappings** (an NPC goes `missing_this_loop`; findable in town outskirts or dungeon
    floor 1), mobs, cult meetings, public breakdowns.
-6. Check ending triggers (below).
-7. Return a structured "what changed" packet → Claude narrates waking up.
+7. Check ending triggers (below).
+8. Return a structured "what changed" packet → Claude narrates waking up — always at the
+   tavern: the player sleeps there, wakes there, and revives there (§16).
 
 Player death calls `advance_loop(cause="died")` automatically from whatever killed the
 player — combat, traps, NPC attacks, or any future lethal source. The cause is never the
@@ -333,7 +354,10 @@ Chat-native v1. The chat window is the terminal.
   generates ASCII art.
 - The GM prompt's hard rule: *render blocks are echoed verbatim inside a code fence, then
   narrate below.*
-- Dungeon map = fog-of-war graph: visited rooms drawn, seen-but-unexplored exits as `(?)`.
+- Both maps are fog-of-war graphs: visited rooms/locations drawn, seen-but-unexplored exits
+  as `(?)`. The town map uses the same renderer as the dungeon (the layout is generated per
+  save — §16 — so there is no static hand-drawn town map). The local class starts with the
+  town fully revealed.
 
 ```
 Loop 14 · HP 42/60 · MP 8/12 · Resolve 61 · Gold 118 (worth less every day)
@@ -363,7 +387,7 @@ dark ≠ gratuitous.
 
 1. `db.py` + schema + seed data (small: ~6 NPCs incl. the disguised wizard, ~10 enemies,
    ~15 items, ~8 statuses, ~10 overnight events)
-2. `new_game` / `get_state` / `look` / `move` + town & dungeon rendering
+2. `new_game` / `get_state` / `look` / `move` + town generation (§16) & fog-of-war rendering
 3. Combat: hybrid auto/rounds, death → reset
 4. Economy: price scaling + gold rot + barter gating
 5. Sanity decay + gates + NPC packet + `talk_to` + memories/rumors
@@ -375,7 +399,8 @@ dark ≠ gratuitous.
 10. Playtest in Claude Desktop
 
 **Explicitly out of v1:** multiple save slots, the socket dashboard, quests/promises system,
-deliberate-despot path, extra endings.
+deliberate-despot path, extra endings, Garrick recovery after he's gone (§16), den
+barter/quests beyond the fence buy-back, additional Garrick family NPCs.
 
 ## 13. Later (post-v1)
 
@@ -391,9 +416,10 @@ deliberate-despot path, extra endings.
 **Loop 1 is the playable tutorial — one ordinary day — and it's skippable on replay**
 (`new_game(skip_intro=True)`).
 
-1. **Arrival & class.** The player arrives at the town gate at dawn. Class selection is
-   diegetic and determines backstory, which seeds starting dispositions (per-class offsets
-   in `npcs.json`):
+1. **Arrival & class.** The player arrives at the town gate at dawn (loop 1 only — from
+   loop 2 on, every day begins waking at the tavern, §16). Class selection is diegetic and
+   determines backstory, which seeds starting dispositions (per-class offsets in
+   `npcs.json`):
    - **Warrior** — the guard captain's son. Local; town starts warm. Watching it unravel
      hurts more.
    - **Mage** — a traveling scholar. Outsider; neutral, with early suspicion ("the loop
@@ -429,3 +455,103 @@ foreshadow it into the ground by loop 5. Server-side measures:
 
 General principle: **information the narrator shouldn't narrate must never enter its
 context.** The GM is also an audience.
+
+## 16. The Town: Layout, Fog-of-War, and the Crime Machine
+
+Locked 2026-06-10. The town gets the same structural respect as the dungeon — a generated
+graph in the DB — but with the opposite lifecycle: **the dungeon regenerates every loop;
+the town is generated once per save and never again.** The town is the constant that
+decays; the player's knowledge of it is the anomaly the loop preserves.
+
+### Layout — randomized once
+
+- `town_locations` / `town_edges` are generated in `new_game()` from the save seed and are
+  untouched by loop resets.
+- **The local class (warrior) gets the canonical handcrafted layout**, fully revealed from
+  loop 1 — the designer's "intended" town, and the local-knowledge perk made mechanical.
+  Outsider classes get a generated layout, unrevealed.
+- Fixed anchors, never randomized: Market Square is the hub (notice board — where the
+  Proclamation physically lives — and the well, the rumor spot, are square features, not
+  locations); **the tavern is always on the square**; the `gate → outskirts → dungeon_mouth`
+  chain is fixed.
+- Generator: deal the remaining buildings between "square-adjacent" and "back streets"
+  (reached through slums/alleys), add 2–3 alley shortcut edges between random pairs, then
+  BFS-verify connectivity (same check as the dungeon generator).
+
+**Roster:** square, tavern (The Last Hearth — Tobias), **two general stores**, smithy,
+apothecary, **magic shop (run by Wendel — sells the stat accessories)**, chapel, graveyard,
+watch house (Captain Garrick), **two slum dens**, park, boarded-up house (one-time
+scavenge, squatter encounter), 2–3 generated alleys, gate, outskirts, dungeon mouth.
+
+### The tavern is home
+
+The player sleeps at the tavern, wakes at the tavern every loop, and revives there on
+death. Tobias is the first face of every single day — the anchor (§9) made spatial.
+
+### Fog-of-war
+
+- `town_locations.visited` drives the render: visited locations drawn, adjacent unvisited
+  exits as `(?)` with a server-authored description ("a street toward chimney smoke"),
+  never a name. §15 applies to geography: the GM can't leak what isn't in its context.
+- Movement along edges from the current location is always legal — you can see the street;
+  the fog governs rendering and narration, not physics.
+- Reveals: walking there; the **town map item** (sold at a general store); or
+  `ask_directions(npc_key)` — disposition-gated, which turns exploration into a social
+  mechanic (costly for the distrusted ninja, fitting for the suspected mage).
+
+### Risk tiles — two curves, one message
+
+| Tile | Curve | Why |
+|---|---|---|
+| Slums / dens | Flat ~15% ambush per transit, from loop 1 | It was always rough; nobody there is surprised |
+| Alleys + park | ~0% early, scaling with loop count × town decay | The safe places rotting is the horror beat |
+
+The park additionally restores a sliver of resolve once per loop in early loops — until it
+turns. Ambushes are **nameless broken townsfolk** (cutpurse, feral dog, mad penitent,
+drunkard) using the NPC tier stat blocks — never the 7 named NPCs. Killing one when flee
+was offered: +1 brutality. They drop a few coins.
+
+### The crime machine
+
+**Garrick's sanity tier is the crime valve.**
+
+| Garrick | Robberies |
+|---|---|
+| holding on | none — the watch holds |
+| fraying | each general store hit on a coin flip per night |
+| unraveling / gone | every store, every night — **irreversible in v1** |
+
+- Each general store is secretly **paired with one den** (randomized per save). The pairing
+  is learnable — the robbed shopkeeper's account, rumors, Garrick admitting what he can't
+  stop, or matching den loot to store tags. Knowledge is the loop-persistent currency.
+- Robberies run in `advance_loop` step 4: **premium stock** (`shop_stock.premium`) moves
+  store → paired den. The den gatekeeper may consume one looted buff — apply it via the
+  effects table; one line of code, and it sells that these goods are dangerous.
+- **The strong day-long temp buffs are den-loot only.** Day effects are wiped by
+  `effects.clear_all()` at every reset, so the den raid and the big dungeon push must
+  happen the *same day*. The raid is the pre-boss ritual.
+- Den access: **raid** (combat — armed criminals, but killing when they offered to deal
+  adds brutality), or **buy back at extortion markup** (the fence — the pacifist tax).
+- **Sustaining Garrick:** talking to him (small positive memory, once per loop) or
+  defeating den criminals (larger — "the watch isn't alone") fights the ambient decay
+  pulling him down. A daily action that competes with dungeon time. Letting him fall on
+  purpose so the buffs route predictably to the dens is a legitimate dark strategy — the
+  despot path expressed as town policy.
+- **Shopkeeper murder** is the shortcut that eats itself: it grants the premium goods, but
+  costs brutality, a heavy near-permanent hostile memory at that shop (the victim revives;
+  the memory doesn't fade), and a **direct heavy sanity hit to Garrick** — a murder in his
+  town. Each murder accelerates the valve until the dens get the goods first and you're
+  fighting a gatekeeper who drank what you came for. No cap needed; the exploit consumes
+  its own profitability.
+- For the warrior, all of this is personal: Garrick is his **father**. Watching him fray —
+  or breaking him yourself, as the captain's son, with the rumors naming you — is the
+  strongest class-specific arc in the game, at zero extra build cost.
+- Once crime maxes, no explicit "shopkeeper leaves" state: a store stripped bare every
+  night is functionally dead already.
+
+### Shops & items
+
+- **One accessory equip slot.** The magic shop sells stat-boosting rings/amulets/charms —
+  useful on every playthrough, and the secret wizard selling you a +1 ring like it's
+  nothing deepens the §15 misdirection.
+- Item shop tags and wrong-shop sell penalties per §8.

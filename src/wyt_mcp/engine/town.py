@@ -1,7 +1,14 @@
-"""The town: locations, NPC sanity decay, gates, statuses, memories, rumors.
+"""The town: layout, fog-of-war, NPC decay, memories, and the crime machine (§16).
+
+The town graph lives in town_locations/town_edges — generated ONCE per save
+in new_game and never touched by loop resets. The dungeon regenerates every
+night; the town only decays. The local class gets the canonical handcrafted
+layout fully revealed; outsiders get a seeded layout and the fog.
 
 Includes the §15 rule: Malgor's packet is forged so the narrator can't leak
-the twist. Information Claude shouldn't narrate never enters its context.
+the twist. Information Claude shouldn't narrate never enters its context —
+and that applies to geography: unvisited places render as descriptions,
+never names.
 """
 
 import random
@@ -9,17 +16,248 @@ import random
 from wyt_mcp import db
 from wyt_mcp.engine import player
 
-TOWN = {
-    "gate":       {"name": "Town Gate",      "exits": ["square", "outskirts"]},
-    "square":     {"name": "Market Square",  "exits": ["gate", "smith", "tavern", "bakery", "apothecary", "chapel"]},
-    "smith":      {"name": "Smithy",         "exits": ["square"]},
-    "tavern":     {"name": "The Last Hearth","exits": ["square"]},
-    "bakery":     {"name": "Bakery",         "exits": ["square"]},
-    "apothecary": {"name": "Apothecary",     "exits": ["square"]},
-    "chapel":     {"name": "Chapel",         "exits": ["square"]},
-    "outskirts":  {"name": "Outskirts",      "exits": ["gate", "dungeon_mouth"]},
-    "dungeon_mouth": {"name": "Dungeon Mouth", "exits": ["outskirts"]},
+# What each location IS. Where it sits comes from town_edges.
+# desc = what the GM may say about it before it's been visited.
+LOCATIONS = {
+    "square":        {"name": "Market Square", "kind": "landmark",
+                      "desc": "the sound of a market"},
+    "tavern":        {"name": "The Last Hearth", "kind": "tavern",
+                      "desc": "warm light and the smell of a hearth"},
+    "gate":          {"name": "Town Gate", "kind": "gate",
+                      "desc": "the town gate"},
+    "outskirts":     {"name": "Outskirts", "kind": "landmark",
+                      "desc": "the road out of town"},
+    "dungeon_mouth": {"name": "Dungeon Mouth", "kind": "landmark",
+                      "desc": "the broken hill where the dungeon opens"},
+    "smith":         {"name": "Smithy", "kind": "shop", "shop_tag": "smith",
+                      "desc": "a street ringing with hammer-blows"},
+    "apothecary":    {"name": "Apothecary", "kind": "shop", "shop_tag": "apothecary",
+                      "desc": "a doorway smelling of dried herbs"},
+    "magic_shop":    {"name": "Wendel's Charms & Chickens", "kind": "shop",
+                      "shop_tag": "magic",
+                      "desc": "a cluttered stall with chickens pecking around it"},
+    "bakery":        {"name": "Sela's Bakery & Provisions", "kind": "shop",
+                      "shop_tag": "general",
+                      "desc": "a street that smells of bread"},
+    "general_store": {"name": "Dorrin's General Goods", "kind": "shop",
+                      "shop_tag": "general",
+                      "desc": "a doorway stacked with crates"},
+    "chapel":        {"name": "Chapel", "kind": "chapel",
+                      "desc": "a narrow lane toward a bell tower"},
+    "graveyard":     {"name": "Graveyard", "kind": "landmark",
+                      "desc": "a low iron gate behind the chapel"},
+    "watch_house":   {"name": "Watch House", "kind": "landmark",
+                      "desc": "a squat stone building flying the town colors"},
+    "park":          {"name": "The Green", "kind": "park", "risk": "scaling",
+                      "desc": "a stretch of green between the houses"},
+    "boarded_house": {"name": "Boarded-Up House", "kind": "landmark",
+                      "risk": "scaling",
+                      "desc": "a house with its windows boarded over"},
+    "den_west":      {"name": "The Rookery", "kind": "den", "risk": "flat",
+                      "desc": "a row of leaning houses where the lamps don't reach"},
+    "den_east":      {"name": "Cellar Row", "kind": "den", "risk": "flat",
+                      "desc": "stairs descending under a row of poor houses"},
+    "alley_1":       {"name": "Tanner's Alley", "kind": "alley", "risk": "scaling",
+                      "desc": "a gap between buildings"},
+    "alley_2":       {"name": "Crooked Lane", "kind": "alley", "risk": "scaling",
+                      "desc": "a crooked gap between buildings"},
+    "alley_3":       {"name": "The Cut", "kind": "alley", "risk": "scaling",
+                      "desc": "a shortcut someone has used recently"},
 }
+
+GENERAL_STORES = ("bakery", "general_store")
+DENS = ("den_west", "den_east")
+
+# The designer's town — what the local (warrior) grew up in.
+CANONICAL_EDGES = [
+    ("gate", "square"), ("gate", "outskirts"), ("outskirts", "dungeon_mouth"),
+    ("square", "tavern"), ("square", "smith"), ("square", "bakery"),
+    ("square", "apothecary"), ("square", "magic_shop"), ("square", "chapel"),
+    ("square", "watch_house"), ("square", "park"),
+    ("chapel", "graveyard"),
+    ("park", "general_store"),
+    ("smith", "alley_1"), ("alley_1", "den_west"), ("den_west", "boarded_house"),
+    ("bakery", "alley_2"), ("alley_2", "den_east"),
+    ("park", "alley_3"), ("alley_3", "graveyard"),
+]
+
+
+# ---------------------------------------------------------------- generation
+
+def generate(seed: int, local: bool) -> None:
+    """Build the town once per save (§16). Loop resets never call this."""
+    rng = random.Random(f"town:{seed}")
+    edges = CANONICAL_EDGES if local else _generate_edges(rng)
+    assert _connected(edges), "town generator produced a disconnected graph"
+
+    c = db.conn()
+    c.execute("DELETE FROM town_locations")
+    c.execute("DELETE FROM town_edges")
+
+    dens = list(DENS)
+    rng.shuffle(dens)
+    pairing = dict(zip(GENERAL_STORES, dens))  # hidden; learnable, not shown
+
+    for key, spec in LOCATIONS.items():
+        c.execute(
+            "INSERT INTO town_locations (key, name, kind, shop_tag, visited, "
+            "paired_den, risk_kind) VALUES (?,?,?,?,?,?,?)",
+            (key, spec["name"], spec["kind"], spec.get("shop_tag"),
+             1 if local else (1 if key == "gate" else 0),
+             pairing.get(key), spec.get("risk")),
+        )
+    for a, b in edges:
+        c.execute("INSERT INTO town_edges (from_key, to_key) VALUES (?,?)", (a, b))
+        c.execute("INSERT INTO town_edges (from_key, to_key) VALUES (?,?)", (b, a))
+    c.commit()
+
+
+def _generate_edges(rng: random.Random) -> list[tuple[str, str]]:
+    """Outsider layout: square hub, some buildings tucked behind the rough parts."""
+    edges = [
+        ("gate", "square"), ("gate", "outskirts"), ("outskirts", "dungeon_mouth"),
+        ("square", "tavern"), ("chapel", "graveyard"),
+    ]
+    buildings = ["smith", "apothecary", "magic_shop", "bakery",
+                 "general_store", "chapel", "watch_house", "park"]
+    rng.shuffle(buildings)
+    front, back = buildings[:5], buildings[5:]
+    edges += [("square", b) for b in front]
+
+    # Each den hides behind an alley that opens off a front-street building.
+    for den, alley in zip(DENS, ("alley_1", "alley_2")):
+        edges += [(rng.choice(front), alley), (alley, den)]
+    # Back-street buildings are reached through the rough parts.
+    for b in back:
+        edges.append((rng.choice(list(DENS) + ["alley_1", "alley_2"]), b))
+    edges.append((rng.choice(DENS), "boarded_house"))
+    # One spare alley as a shortcut between two random buildings.
+    a, b = rng.sample(buildings, 2)
+    edges += [(a, "alley_3"), ("alley_3", b)]
+    return edges
+
+
+def _connected(edges: list[tuple[str, str]]) -> bool:
+    adj: dict[str, set] = {k: set() for k in LOCATIONS}
+    for a, b in edges:
+        adj[a].add(b)
+        adj[b].add(a)
+    seen, queue = {"square"}, ["square"]
+    while queue:
+        for nxt in adj[queue.pop()]:
+            if nxt not in seen:
+                seen.add(nxt)
+                queue.append(nxt)
+    return seen == set(LOCATIONS)
+
+
+# ---------------------------------------------------------------- graph & fog
+
+def location(key: str):
+    return db.conn().execute(
+        "SELECT * FROM town_locations WHERE key=?", (key,)
+    ).fetchone()
+
+
+def all_locations() -> list:
+    return db.conn().execute("SELECT * FROM town_locations ORDER BY id").fetchall()
+
+
+def exits_from(key: str) -> list[dict]:
+    """Exits with fog applied: visited → name, unvisited → description only."""
+    rows = db.conn().execute(
+        "SELECT l.* FROM town_edges e JOIN town_locations l ON l.key = e.to_key "
+        "WHERE e.from_key=? ORDER BY l.id", (key,)
+    ).fetchall()
+    out = []
+    for r in rows:
+        if r["visited"]:
+            out.append({"key": r["key"], "name": r["name"], "known": True})
+        else:
+            out.append({"key": r["key"], "desc": LOCATIONS[r["key"]]["desc"],
+                        "known": False})
+    return out
+
+
+def visit(key: str) -> None:
+    db.conn().execute("UPDATE town_locations SET visited=1 WHERE key=?", (key,))
+    db.conn().commit()
+
+
+def reveal_map() -> str:
+    db.conn().execute("UPDATE town_locations SET visited=1")
+    db.conn().commit()
+    return "The map unfolds — the whole town, named and placed."
+
+
+def ask_directions(npc_key: str, rng: random.Random) -> dict:
+    """A willing NPC reveals one unknown location, shops first (§16)."""
+    n = db.npc(npc_key)
+    if n is None or n["dead_this_loop"] or n["missing_this_loop"]:
+        return {"error": "There is nobody to ask."}
+    if n["withdrawn"] or n["hostile"]:
+        return withdrawn_refusal(n)
+    if n["disposition"] < -30:
+        return {"refused": True, "name": n["name"],
+                "note": "They look at you and decide you can stay lost."}
+    unknown = [r for r in all_locations() if not r["visited"]]
+    if not unknown:
+        return {"name": n["name"], "note": "You already know every street they could name."}
+    shops = [r for r in unknown if r["kind"] == "shop"]
+    pick = rng.choice(shops or unknown)
+    visit(pick["key"])
+    return {"name": n["name"], "revealed": pick["key"],
+            "revealed_name": pick["name"],
+            "note": f"{n['name']} points the way to {pick['name']}."}
+
+
+# ---------------------------------------------------------------- risk tiles
+
+AMBUSH_DEN = ["cutpurse", "den_thug", "mad_penitent"]
+AMBUSH_STREET = ["cutpurse", "feral_dog", "mad_penitent", "drunkard"]
+FLAT_RISK = 0.15
+SCALING_CAP = 0.35
+
+
+def town_avg_sanity() -> float:
+    rows = [n["sanity"] for n in db.npcs_all() if not n["is_wizard"]]
+    return sum(rows) / max(1, len(rows))
+
+
+def ambush_chance(key: str) -> float:
+    """Two curves, one message (§16): dens were always rough; the safe
+    places rot as the town does."""
+    loc = location(key)
+    if loc is None or loc["risk_kind"] is None:
+        return 0.0
+    if loc["risk_kind"] == "flat":
+        return FLAT_RISK
+    loop = db.game()["loop_count"]
+    base = max(0.0, (loop - 3) * 0.025)
+    decay_factor = 1.5 - town_avg_sanity() / 100.0   # 0.5 healthy → 1.5 broken
+    return min(SCALING_CAP, base * decay_factor)
+
+
+def roll_ambush(key: str, rng: random.Random) -> str | None:
+    """Returns an enemy_key if a transit through this tile turns bad."""
+    if rng.random() >= ambush_chance(key):
+        return None
+    loc = location(key)
+    pool = AMBUSH_DEN if loc["kind"] == "den" else AMBUSH_STREET
+    return rng.choice(pool)
+
+
+def park_rest() -> dict:
+    """A sliver of resolve, once per loop, while the green still feels safe."""
+    g, p = db.game(), db.player()
+    if p["park_rested_loop"] == g["loop_count"]:
+        return {"note": "You have already taken what the green has to give today."}
+    if town_avg_sanity() < 55:
+        return {"note": ("You sit a while. It doesn't help anymore — the grass "
+                         "is trodden and somebody is crying two benches down.")}
+    db.set_player(park_rested_loop=g["loop_count"])
+    new = player.change_resolve(+2, "an hour on the green, pretending")
+    return {"resolve": new, "note": "An hour where the loop feels far away. +2 resolve."}
 
 
 def tier(sanity: int) -> str:
@@ -288,3 +526,168 @@ def withdrawn_refusal(n) -> dict:
         "note": ("They register you, maybe. They do not answer. "
                  "Narrate the silence; do not invent dialogue for them."),
     }
+
+
+# ---------------------------------------------------------------- the crime machine (§16)
+
+def garrick_tier() -> str:
+    g = db.npc("garrick")
+    return tier(g["sanity"]) if g is not None else "gone"
+
+
+def restock_shops(rng: random.Random) -> None:
+    """Nightly restock (advance_loop step 2). Every shop refills by tag; the
+    premium buffs are dealt between the two general stores. Dens start the
+    day empty — what a den holds is only ever last night's takings."""
+    c = db.conn()
+    c.execute("DELETE FROM shop_stock")
+    c.execute("UPDATE town_locations SET den_buff=NULL")
+    gear_keys = {g["key"] for g in db.load_data("gear")}
+    items = db.load_data("gear") + db.load_data("consumables")
+    for loc in all_locations():
+        if loc["kind"] != "shop":
+            continue
+        for it in items:
+            if it.get("shop") != loc["shop_tag"] or it.get("premium"):
+                continue
+            qty = 1 if it["key"] in gear_keys else 3
+            c.execute(
+                "INSERT INTO shop_stock (location_key, item_key, qty, premium) "
+                "VALUES (?,?,?,0)", (loc["key"], it["key"], qty),
+            )
+    premiums = [i for i in items if i.get("premium")]
+    rng.shuffle(premiums)
+    for i, it in enumerate(premiums):
+        c.execute(
+            "INSERT INTO shop_stock (location_key, item_key, qty, premium) "
+            "VALUES (?,?,1,1)", (GENERAL_STORES[i % len(GENERAL_STORES)], it["key"]),
+        )
+    c.commit()
+
+
+def run_robberies(loop_count: int, rng: random.Random) -> list[str]:
+    """advance_loop step 4. Garrick's sanity tier is the crime valve:
+    holding on — the watch holds; fraying — coin flip per store;
+    unraveling/gone — every store, every night. Irreversible in v1."""
+    t = garrick_tier()
+    if t == "holding on":
+        return []
+    notes, c = [], db.conn()
+    consumables = {i["key"]: i for i in db.load_data("consumables")}
+    for store_key in GENERAL_STORES:
+        if t == "fraying" and rng.random() < 0.5:
+            continue
+        store = location(store_key)
+        taken = c.execute(
+            "SELECT * FROM shop_stock WHERE location_key=? AND premium=1",
+            (store_key,),
+        ).fetchall()
+        if not taken:
+            continue
+        c.execute(
+            "UPDATE shop_stock SET location_key=? WHERE location_key=? AND premium=1",
+            (store["paired_den"], store_key),
+        )
+        notes.append(f"{store['name']} was broken into in the night. "
+                     "The good stock is gone.")
+        # The crew samples its own takings: tonight's gatekeeper fights enhanced.
+        buffs = [r for r in taken if consumables.get(r["item_key"], {}).get("buff")]
+        if buffs and rng.random() < 0.5:
+            drunk = rng.choice(buffs)
+            c.execute("DELETE FROM shop_stock WHERE id=?", (drunk["id"],))
+            c.execute("UPDATE town_locations SET den_buff=? WHERE key=?",
+                      (drunk["item_key"], store["paired_den"]))
+    c.commit()
+    return notes
+
+
+def den_stock(den_key: str) -> list:
+    return db.conn().execute(
+        "SELECT * FROM shop_stock WHERE location_key=?", (den_key,)
+    ).fetchall()
+
+
+def apply_den_buff(den_key: str) -> str | None:
+    """Call right after combat.begin for a den fight: the gatekeeper drank
+    something from last night's takings. Enemy effects die with the fight."""
+    from wyt_mcp.engine import effects
+
+    loc = location(den_key)
+    if loc is None or not loc["den_buff"]:
+        return None
+    item = {i["key"]: i for i in db.load_data("consumables")}[loc["den_buff"]]
+    b = item["buff"]
+    effects.add("enemy", b["kind"], b["value"], rounds_left=None)
+    return f"The keeper's eyes are wrong — they've had the {item['name']}."
+
+
+def loot_den(den_key: str) -> list[str]:
+    """The keeper is down: everything in the den goes home with you."""
+    rows = den_stock(den_key)
+    if not rows:
+        return ["The den is picked clean. Last night they got nothing — or sold it."]
+    items = {i["key"]: i for i in db.load_data("gear") + db.load_data("consumables")}
+    notes = []
+    for r in rows:
+        player.add_item(r["item_key"], r["qty"])
+        name = items.get(r["item_key"], {}).get("name", r["item_key"])
+        notes.append(f"You take {name}" + (f" x{r['qty']}" if r["qty"] > 1 else "") + ".")
+    db.conn().execute("DELETE FROM shop_stock WHERE location_key=?", (den_key,))
+    db.conn().commit()
+    return notes
+
+
+GARRICK_SUPPORT_TEXT = "You came by the watch house just to stand with him."
+
+
+def support_garrick() -> dict:
+    """Talking to Garrick holds him together a little — once per loop (§16)."""
+    g = db.npc("garrick")
+    loop = db.game()["loop_count"]
+    if g is None or g["dead_this_loop"]:
+        return {}
+    already = db.conn().execute(
+        "SELECT 1 FROM npc_memories WHERE npc_id=? AND loop_count=? AND event_text=?",
+        (g["id"], loop, GARRICK_SUPPORT_TEXT),
+    ).fetchone()
+    if already:
+        return {}
+    add_memory("garrick", GARRICK_SUPPORT_TEXT, "witnessed", +2)
+    db.update("npcs", g["id"], sanity=min(100, g["sanity"] + 2))
+    return {"gm_note": "Standing with Garrick steadies him a little. (+2 sanity)"}
+
+
+def garrick_heartened(amount: int, text: str) -> None:
+    """The watch isn't alone: fighting the den crews shores Garrick up."""
+    g = db.npc("garrick")
+    if g is None:
+        return
+    add_memory("garrick", text, "rumor", +3)
+    db.update("npcs", g["id"], sanity=min(100, db.npc("garrick")["sanity"] + amount))
+
+
+def shopkeeper_murdered(n) -> list[str]:
+    """The shortcut that eats itself (§16): the goods are yours, the memory
+    is forever, and Garrick takes the hit that speeds the collapse."""
+    notes = []
+    loc = db.conn().execute(
+        "SELECT * FROM town_locations WHERE key=?", (n["location"],)
+    ).fetchone()
+    if loc is not None and loc["kind"] == "shop":
+        rows = db.conn().execute(
+            "SELECT * FROM shop_stock WHERE location_key=? "
+            "ORDER BY premium DESC, id LIMIT 3", (loc["key"],)
+        ).fetchall()
+        items = {i["key"]: i
+                 for i in db.load_data("gear") + db.load_data("consumables")}
+        for r in rows:
+            player.add_item(r["item_key"], r["qty"])
+            db.conn().execute("DELETE FROM shop_stock WHERE id=?", (r["id"],))
+            name = items.get(r["item_key"], {}).get("name", r["item_key"])
+            notes.append(f"You take {name} from behind the counter.")
+        db.conn().commit()
+    add_memory("garrick",
+               f"A murder in his town — {n['name']}, behind their own counter. "
+               "He knows whose hands did it.", "rumor", -10)
+    notes.append("Word of this will reach the watch house. It always does.")
+    return notes
