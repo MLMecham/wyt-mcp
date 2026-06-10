@@ -1,0 +1,9 @@
+[
+  { "key": "potion",        "name": "Healing Potion",  "heal": 20, "price": 15, "sold_by": "petra" },
+  { "key": "strong_potion", "name": "Vitality Draught","heal": 50, "price": 40, "sold_by": "petra" },
+  { "key": "mana_draught",  "name": "Mana Draught",    "mana": 12, "price": 25, "sold_by": "petra" },
+  { "key": "bitter_tonic",  "name": "Bitter Tonic",    "heal": 10, "mana": 6, "price": 22, "sold_by": "petra" },
+  { "key": "ember_draught", "name": "Ember Draught",   "buff": { "kind": "damage_mult", "value": 1.25 }, "price": 35, "sold_by": "petra" },
+  { "key": "warm_bread",    "name": "Warm Bread",      "heal": 5,  "resolve": 1, "price": 3,  "sold_by": "sela" },
+  { "key": "honey_cake",    "name": "Honey Cake",      "resolve": 2, "price": 8,  "sold_by": "sela" }
+]

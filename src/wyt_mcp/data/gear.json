@@ -1,0 +1,14 @@
+[
+  { "key": "rusty_sword",   "name": "Rusty Sword",    "slot": "weapon", "atk": 2,  "price": 20,  "sold_by": "marta" },
+  { "key": "iron_sword",    "name": "Iron Sword",     "slot": "weapon", "atk": 5,  "price": 60,  "sold_by": "marta" },
+  { "key": "steel_sword",   "name": "Steel Sword",    "slot": "weapon", "atk": 9,  "price": 150, "sold_by": "marta" },
+  { "key": "hunting_bow",   "name": "Hunting Bow",    "slot": "weapon", "atk": 4,  "spd": 1, "price": 55,  "sold_by": "marta" },
+  { "key": "warbow",        "name": "Warbow",         "slot": "weapon", "atk": 8,  "spd": 1, "price": 140, "sold_by": "marta" },
+  { "key": "twin_daggers",  "name": "Twin Daggers",   "slot": "weapon", "atk": 3,  "spd": 2, "price": 65,  "sold_by": "marta" },
+  { "key": "night_fangs",   "name": "Night Fangs",    "slot": "weapon", "atk": 7,  "spd": 2, "price": 155, "sold_by": "marta" },
+  { "key": "oak_staff",     "name": "Oak Staff",      "slot": "weapon", "mag": 4,  "price": 50,  "sold_by": "marta" },
+  { "key": "ember_staff",   "name": "Ember Staff",    "slot": "weapon", "mag": 8,  "price": 140, "sold_by": "marta" },
+  { "key": "leather_armor", "name": "Leather Armor",  "slot": "armor",  "def": 3,  "price": 45,  "sold_by": "marta" },
+  { "key": "chain_mail",    "name": "Chain Mail",     "slot": "armor",  "def": 6,  "price": 110, "sold_by": "marta" },
+  { "key": "plate_armor",   "name": "Plate Armor",    "slot": "armor",  "def": 10, "price": 240, "sold_by": "marta" }
+]

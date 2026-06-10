@@ -1,0 +1,10 @@
+[
+  { "key": "paranoid",   "name": "Paranoid",   "min_loop": 3,  "sanity_max": 69, "blurb": "Sees the player's hand in every misfortune; counts exits; trusts no kindness." },
+  { "key": "hoarding",   "name": "Hoarding",   "min_loop": 3,  "sanity_max": 69, "blurb": "Stockpiles food, nails, candles — anything. Refuses to part with stock at any price." },
+  { "key": "clingy",     "name": "Clingy",     "min_loop": 4,  "sanity_max": 69, "blurb": "Attaches desperately to the player; follows, pleads, cannot bear to be left." },
+  { "key": "despondent", "name": "Despondent", "min_loop": 4,  "sanity_max": 55, "blurb": "Has stopped pretending tomorrow is different. Speaks in past tense about living people." },
+  { "key": "mute",       "name": "Mute",       "min_loop": 6,  "sanity_max": 39, "blurb": "Stopped speaking entirely. Communicates in nods, or not at all." },
+  { "key": "violent",    "name": "Violent",    "min_loop": 6,  "sanity_max": 39, "blurb": "The fear has curdled. Lashes out at slights real or imagined, even in the square." },
+  { "key": "fanatic",    "name": "Fanatic",    "min_loop": 8,  "sanity_max": 55, "blurb": "Believes the loop is judgment and someone must be offered up to end it." },
+  { "key": "prophetic",  "name": "Prophetic",  "min_loop": 10, "sanity_max": 39, "blurb": "Sees too much at the edges. Says true things nobody wants explained." }
+]

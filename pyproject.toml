@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wyt-mcp"
+version = "0.1.0"
+description = "Watch Your Toes — a time-loop horror RPG played through Claude Desktop via MCP"
+license = { text = "MIT" }
+authors = [{ name = "MLMecham" }]
+requires-python = ">=3.11"
+dependencies = [
+    "mcp[cli]",
+    "platformdirs",
+]
+
+[project.scripts]
+wyt-mcp = "wyt_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wyt_mcp"]

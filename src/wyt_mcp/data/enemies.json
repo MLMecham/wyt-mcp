@@ -1,0 +1,13 @@
+[
+  { "key": "rat_swarm",     "name": "Rat Swarm",          "floor": 1, "hp": 14, "str": 3,  "def": 1, "spd": 5, "xp": 8,  "gold": 4 },
+  { "key": "giant_spider",  "name": "Giant Spider",       "floor": 1, "hp": 18, "str": 4,  "def": 2, "spd": 6, "xp": 10, "gold": 6 },
+  { "key": "goblin_scout",  "name": "Goblin Scout",       "floor": 1, "hp": 16, "str": 4,  "def": 2, "spd": 7, "xp": 10, "gold": 10 },
+  { "key": "skeleton",      "name": "Rattling Skeleton",  "floor": 2, "hp": 24, "str": 6,  "def": 4, "spd": 4, "xp": 16, "gold": 12 },
+  { "key": "goblin_brute",  "name": "Goblin Brute",       "floor": 2, "hp": 30, "str": 7,  "def": 3, "spd": 4, "xp": 18, "gold": 16 },
+  { "key": "cave_troll",    "name": "Cave Troll",         "floor": 2, "hp": 44, "str": 9,  "def": 5, "spd": 2, "xp": 30, "gold": 28 },
+  { "key": "wraith",        "name": "Wraith",             "floor": 3, "hp": 34, "str": 8,  "def": 6, "spd": 8, "xp": 28, "gold": 20 },
+  { "key": "hollow_acolyte","name": "Hollow Acolyte",     "floor": 3, "hp": 38, "str": 9,  "def": 5, "spd": 6, "xp": 30, "gold": 24 },
+  { "key": "shadow_hound",  "name": "Shadow Hound",       "floor": 3, "hp": 36, "str": 10, "def": 4, "spd": 9, "xp": 32, "gold": 18 },
+  { "key": "the_warden",    "name": "The Warden",         "floor": 4, "hp": 90, "str": 13, "def": 8, "spd": 6, "xp": 120, "gold": 100, "boss": true },
+  { "key": "malgor",        "name": "Malgor, Unmasked",   "floor": 0, "hp": 140, "str": 15, "def": 9, "spd": 8, "xp": 0,  "gold": 0,  "boss": true }
+]

@@ -1,0 +1,87 @@
+[
+  {
+    "key": "garrick",
+    "name": "Captain Garrick",
+    "role": "guard captain",
+    "location": "gate",
+    "personality": "square-jawed, duty-bound, holds the gate like the loop is a siege he can outlast; privately terrified of being useless",
+    "base_decay": 2,
+    "traits": [],
+    "shop": false,
+    "combat_tier": "strong",
+    "dispositions": { "warrior": 45, "mage": 0, "archer": 10, "ninja": -25 }
+  },
+  {
+    "key": "marta",
+    "name": "Marta",
+    "role": "blacksmith",
+    "location": "smith",
+    "personality": "gruff, fair, secretly sentimental about her late husband's forge",
+    "base_decay": 2,
+    "traits": [],
+    "shop": true,
+    "combat_tier": "average",
+    "dispositions": { "warrior": 20, "mage": 0, "archer": 5, "ninja": -10 }
+  },
+  {
+    "key": "tobias",
+    "name": "Tobias",
+    "role": "tavern keeper",
+    "location": "tavern",
+    "personality": "warm, unhurried, keeps pouring because somebody has to; the last hearth in town",
+    "base_decay": 1,
+    "traits": ["resilient"],
+    "shop": false,
+    "combat_tier": "weak",
+    "dispositions": { "warrior": 15, "mage": 10, "archer": 10, "ninja": 5 }
+  },
+  {
+    "key": "petra",
+    "name": "Petra",
+    "role": "apothecary",
+    "location": "apothecary",
+    "personality": "precise, clipped, counts her jars twice; believes in remedies the way others believe in gods",
+    "base_decay": 3,
+    "traits": ["fragile"],
+    "shop": true,
+    "combat_tier": "weak",
+    "dispositions": { "warrior": 0, "mage": 25, "archer": 0, "ninja": -10 }
+  },
+  {
+    "key": "sela",
+    "name": "Sela",
+    "role": "baker",
+    "location": "bakery",
+    "personality": "chatty, generous, bakes at four in the morning because the smell makes people brave",
+    "base_decay": 3,
+    "traits": ["fragile"],
+    "shop": true,
+    "combat_tier": "weak",
+    "dispositions": { "warrior": 10, "mage": 5, "archer": 15, "ninja": 0 }
+  },
+  {
+    "key": "bren",
+    "name": "Father Bren",
+    "role": "priest",
+    "location": "chapel",
+    "personality": "soft-spoken, doubting, keeps the candles lit for a congregation that stopped coming",
+    "base_decay": 2,
+    "traits": ["prophetic_prone"],
+    "shop": false,
+    "combat_tier": "weak",
+    "dispositions": { "warrior": 5, "mage": 15, "archer": 5, "ninja": 10 }
+  },
+  {
+    "key": "wendel",
+    "name": "Old Wendel",
+    "role": "chicken keeper",
+    "location": "square",
+    "personality": "keeps chickens; nods at passersby; has very little to say",
+    "base_decay": 2,
+    "traits": [],
+    "shop": false,
+    "combat_tier": "wizard",
+    "is_wizard": true,
+    "dispositions": { "warrior": 0, "mage": 0, "archer": 0, "ninja": 0 }
+  }
+]

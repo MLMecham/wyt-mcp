@@ -1,0 +1,8 @@
+{
+  "enemy":    ["Bone Hall", "Flooded Passage", "Web-Choked Gallery", "Collapsed Vault", "Echoing Stair", "Rusted Armory"],
+  "trap":     ["Spike Corridor", "Crumbling Bridge", "Gas Pocket", "Pendulum Walk"],
+  "treasure": ["Forgotten Cache", "Burial Alcove", "Smuggler's Nook", "Toppled Reliquary"],
+  "empty":    ["Quiet Antechamber", "Dripping Cell", "Cold Landing", "Roots and Dark"],
+  "boss":     ["The Warden's Gate"],
+  "artifact": ["The Hollow Heart"]
+}
