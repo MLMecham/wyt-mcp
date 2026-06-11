@@ -6,55 +6,68 @@ levels, gold, gear, knowledge — while the townsfolk's sanity decays, the econo
 rots, and the dungeon beneath the town reshuffles itself every dawn. Claude is
 the game master; the server owns every die roll, map, and price.
 
-`DESIGN.md` is the authoritative spec (§1–§15). Read it before touching the code.
+`DESIGN.md` is the authoritative spec (§1–§19). Read it before touching the code.
 
-## Status: engine in progress, not yet playable
+## Status: v1 core complete — playtest phase
 
-The MCP server (`server.py`) doesn't exist yet, so there is nothing to connect a
-client to. What's built and smoke-tested so far:
+Everything in the §12 build order exists and is smoke-tested: the full engine,
+the renderer, the MCP tool surface (23 tools + the GM prompt), and the headless
+balance harness. What remains before calling v1 done is playtesting in Claude
+Desktop, then the post-core content (§17 unplayed-class NPCs, §19 the barrier
+& shards).
 
 | Module | What it does |
 |---|---|
 | `db.py` | SQLite schema, save lifecycle, helpers. One save slot. |
 | `data/*.json` | NPCs, enemies, gear, consumables, statuses, events, room pool. |
-| `engine/player.py` | Classes, gear bonuses, XP/leveling (banked stat points), resolve, conduct. |
-| `engine/town.py` | Town graph, nightly sanity decay, gates, memories/rumors, the §15 forged wizard packet. |
-| `engine/economy.py` | Loop- and sanity-scaled prices, shop stock, gold-acceptance decay. |
-| `engine/dungeon.py` | Per-loop graph generation (spine + branches), movement validation, traps/treasure, floor clears. |
+| `engine/player.py` | Classes, slot-enforced equip, XP/leveling (banked stat points), consumables, resolve, conduct. |
+| `engine/town.py` | Generated town graph + fog-of-war, sanity decay, gates, memories/rumors, the crime machine (§16), the §15 forged wizard packet. |
+| `engine/economy.py` | Loop- and sanity-scaled prices, DB-backed stock, shop-tag sell penalties, the den fence. |
+| `engine/dungeon.py` | Per-loop graph generation (spine + branches), movement, traps/treasure, floor clears. |
 | `engine/effects.py` | Buffs/debuffs/stuns — combat-scoped and day-long. |
-| `engine/combat.py` | Hybrid auto/round combat: initiative, crits, crit-stuns, follow-ups, flee, NPC kills. |
+| `engine/combat.py` | Hybrid auto/round combat: initiative, crits, follow-ups, flee, NPC kills, town-enemy hooks. |
+| `engine/days.py` | `new_game`, the 8-step overnight reset, the Garrick valve, overnight events, the first midnight. |
+| `engine/endings.py` | Breaking point (despot/husk), the reveal, dawn/successor, epilogues. |
+| `engine/tuning.py` | Every pacing knob in one file (§18). |
+| `render.py` | All ASCII output: status bar, fog-of-war town & dungeon maps, shop tables, combat panel. |
+| `server.py` | FastMCP tool surface + the GM-persona prompt. |
+| `simulate.py` | Headless balance harness. |
 
 ## Requirements
 
 - [uv](https://docs.astral.sh/uv/) — that's it. `uv sync` provisions Python 3.12
-  and the two runtime deps (`mcp[cli]`, `platformdirs`). SQLite needs no install;
-  it ships in Python's standard library (`sqlite3`).
+  and the two runtime deps (`mcp[cli]`, `platformdirs`).
 
-## Poking at the engine today
+## Playing it (Claude Desktop)
 
-There's no UI yet, but the engine runs headless:
+Add to `claude_desktop_config.json` (local checkout; PyPI publish comes later):
+
+```json
+{
+  "mcpServers": {
+    "wyt": {
+      "command": "uv",
+      "args": ["run", "--directory", "C:/path/to/wyt-mcp", "wyt-mcp"]
+    }
+  }
+}
+```
+
+Then use the `start_game` prompt and let the GM take it from there. The save
+lives in your platform user-data dir (e.g. `%LOCALAPPDATA%\wyt-mcp\save.db`).
+
+## Headless balance runs
 
 ```powershell
 uv sync
-uv run python
+uv run python -m wyt_mcp.simulate --loops 18
+uv run python -m wyt_mcp.simulate --loops 20 --class mage --runs 5
 ```
 
-```python
-from wyt_mcp import db
-from wyt_mcp.engine import combat, dungeon, player
-
-db.create_save("Ren", "warrior", player.CLASSES["warrior"], seed=7)
-dungeon.generate(7)
-
-dungeon.descend(1)                      # enter the dungeon at floor 1
-dungeon.move("Bone Hall")               # exits are edge labels; see dungeon.exits()
-combat.begin(enemy_key="rat_swarm")     # auto-resolves trash; bosses refuse auto
-combat.round_action("strike")           # round-by-round when it matters
-```
-
-The save lives in your platform user-data dir (e.g.
-`%LOCALAPPDATA%\wyt-mcp\save.db`). Point `WYT_MCP_DB` at a throwaway path to
-experiment without touching it:
+Prints per-loop town average/min sanity, the price of an iron sword, player
+resolve, and the Garrick valve state. Tune in `engine/tuning.py`, re-run,
+repeat. Point `WYT_MCP_DB` at a throwaway path to experiment by hand without
+touching your save:
 
 ```powershell
 $env:WYT_MCP_DB = "$env:TEMP\wyt-test.db"
@@ -62,19 +75,12 @@ $env:WYT_MCP_DB = "$env:TEMP\wyt-test.db"
 
 ## Roadmap
 
-Remaining v1 work, in build order (details in `DESIGN.md` §12):
-
-1. `engine/days.py` — `new_game()` and the seven-step overnight loop reset:
-   revive/restock/regenerate, sanity decay, rumors, overnight events, the
-   "what changed" packet Claude narrates from.
-2. `engine/endings.py` — the breaking point, the artifact retrieval, the reveal
-   at the dungeon mouth, the four v1 endings, per-NPC epilogues.
-3. `render.py` — all ASCII output: status bar, town map, fog-of-war dungeon map,
-   shop tables. Rendered server-side, shown verbatim.
-4. `server.py` — the FastMCP tool surface (`new_game`, `look`, `move`, `attack`,
-   `advance_loop`, `spend_point`, …) plus the GM-persona prompt.
-5. `simulate.py` — headless balance harness: run N loops, watch sanity, prices,
-   and gate flips drift.
-
-Post-v1 ideas live in `DESIGN.md` §13: more endings, a deliberate despot path,
-difficulty settings, a deeper dungeon.
+1. **Playtest in Claude Desktop** — the last §12 step.
+2. **§17 — The Roads Not Taken:** the three classes you didn't pick exist in
+   the world (the rival in the dungeon, the hunting party, the scholar at the
+   charm stall, the assassin who learns your tricks).
+3. **§19 — The Barrier & the Shards:** visible non-resetting outside world,
+   perma-death shards, the suspicion gradient, and the Stillness / Refusal /
+   Erased endings.
+4. Post-v1 (§13): quests & altruism as the despair counterweight, per-class
+   S-endings, the socket dashboard, more endings.
