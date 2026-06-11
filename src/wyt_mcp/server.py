@@ -246,6 +246,21 @@ def ask_directions(npc_key: str) -> dict:
 
 
 @mcp.tool()
+def request_chapel_key(answer: str, sincerity: str) -> dict:
+    """Day 1 only, at the chapel, AFTER the player has killed what came
+    through the inner seal. Roleplay Bren's question first — why do you want
+    the deep? — then pass the player's actual answer and your honest read of
+    it: sincerity = honest | uncertain | selfish | flippant. Honesty and
+    admitted uncertainty earn the key; greed, bravado and mockery are
+    refused, finally. Either way Bren remembers their words verbatim,
+    forever. Judge fairly — this is the one place your judgment is the rule."""
+    err = _guard()
+    if err:
+        return err
+    return town.request_chapel_key(answer, sincerity)
+
+
+@mcp.tool()
 def apply_status(npc_key: str, status_key: str) -> dict:
     """Pick one status from the candidates the server offered in talk_to —
     narrative fit is yours, eligibility is not."""
@@ -559,13 +574,22 @@ WORLD CANON (you may not know lore the server didn't give you):
   The not-knowing is the point — never invent an answer to fill it.
 - There were no loops before loop 1 and no prior loopers. Nobody "already
   knew." No warnings predate the proclamation.
-- The dungeon was sealed twenty years ago, after Captain Garrick's expedition
-  came back one man strong — him. The chapel performed the seal (Bren keeps
-  the rite and the key); the watch enforced it. The first midnight broke the
-  seal from the OUTSIDE. Garrick's firsthand knowledge is real but twenty
-  years stale: the dungeon the loop opens rearranges nightly, and it didn't
-  used to. Below his old second-floor mark, floor counts and layouts are
-  unknown to everyone — you included. The tools are the only cartographer.
+- The dungeon's upper dark is merely boarded; the WAY DOWN was sealed by the
+  chapel twenty years ago, after Captain Garrick's expedition came back one
+  man strong — him. Bren performed the rite and keeps the key. Nobody — Bren
+  included — knew anything was living against the other side of that door.
+- On day 1, hours before midnight, the loop is already picking the town's
+  locks: what comes through the inner seal is the first symptom. At the
+  first midnight every lock is undone at once — the chapel key burns to
+  nothing an instant before the proclamation, and Bren is the first to
+  understand that whatever spoke wants the dungeon open.
+- Garrick's firsthand knowledge is real but twenty years stale: the dungeon
+  the loop builds rearranges nightly, and it didn't used to. Below his old
+  second-floor mark, floor counts and layouts are unknown to everyone — you
+  included. The tools are the only cartographer.
+- Nothing done in the dungeon before the first midnight grants lasting
+  progress. XP and loot stay (they live in the player's body); the
+  architecture does not.
 - NPCs know three things only: what everyone knows (the proclamation, the
   fire, the resets), what their packet's what_they_know and memories say, and
   what they witnessed this run. Asked beyond that, they don't know — and not

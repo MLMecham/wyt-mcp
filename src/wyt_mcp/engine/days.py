@@ -41,6 +41,7 @@ def new_game(name: str, klass: str, skip_intro: bool = False) -> dict:
     db.create_save(name, klass, spec, seed)
     town.generate(seed, spec["local"])
     dungeon.generate(seed)
+    dungeon.build_tutorial()    # §14: the pre-loop upper dark, day 1 only
     town.restock_shops(random.Random(f"stock:{seed}:1"))
 
     packet = {
@@ -81,23 +82,28 @@ def first_day_rescue() -> dict:
     """§14: nobody dies on the ordinary day. Whatever drops the player on
     loop 1, Captain Garrick gets them out — barely. The first death the
     player experiences must be everyone's, at midnight."""
+    underground = db.game()["area"] == "dungeon"
     db.set_player(hp=1)
     db.set_game(area="town", location="watch_house")
     town.visit("watch_house")
-    town.add_memory("garrick",
-                    "He carried you in himself, your blood on his uniform. "
-                    "You weren't breathing right.", "witnessed", +2)
+    mem = ("He went back into that place for you — twenty years after it "
+           "took his men — and carried you out himself."
+           if underground else
+           "He carried you in himself, your blood on his uniform. "
+           "You weren't breathing right.")
+    town.add_memory("garrick", mem, "witnessed", +2)
     db.log_event("Pulled back from the brink; woke at the watch house. (loop 1)")
-    return {
-        "saved_by": "garrick",
-        "hp": 1,
-        "location": "watch_house",
-        "gm_note": ("The player does not die today. The world goes black — "
-                    "then they wake on a cot in the watch house, Captain "
-                    "Garrick nearby. He got to them in time. Barely. They are "
-                    "at 1 HP: let them talk with him, then rest or sleep. "
-                    "Do not explain why today of all days they were lucky."),
-    }
+    gm = ("The player does not die today. The world goes black — then they "
+          "wake on a cot in the watch house, Captain Garrick nearby. He got "
+          "to them in time. Barely. They are at 1 HP: let them talk with "
+          "him, then rest or sleep. Do not explain why today of all days "
+          "they were lucky.")
+    if underground:
+        gm += (" And understand what it cost him: he went back down into the "
+               "dungeon that killed his men, alone, after twenty years, to "
+               "drag them out. He will not talk about it first.")
+    return {"saved_by": "garrick", "hp": 1, "location": "watch_house",
+            "gm_note": gm}
 
 
 # ---------------------------------------------------------------- the night
@@ -173,6 +179,9 @@ def advance_loop(cause: str) -> dict:
     first_midnight = None
     if loop == 1 and not g["intro_done"]:
         db.set_game(intro_done=1)
+        # The loop unmakes the chapel key an instant before the voice (§14).
+        c.execute("DELETE FROM inventory WHERE item_key='chapel_key'")
+        c.commit()
         for n in db.npcs_all():
             town.add_memory(n["key"], FIRST_DAWN_MEMORY, "witnessed", -4, 1)
             fresh = db.npc(n["key"])
@@ -191,10 +200,13 @@ def advance_loop(cause: str) -> dict:
                 "burning to death hours ago. Shutters stay closed. Someone is "
                 "wailing in the square. People grab the player's arm: did you "
                 "feel it too. Nobody calls it a dream — too many of them "
-                "remember the same fire. And by midmorning, word spreads of "
-                "one more impossible thing: the dungeon mouth stands open for "
-                "the first time in twenty years, the chapel's seal split like "
-                "bark. The calm of loop 1 is GONE and never fully comes back."),
+                "remember the same fire. The calm of loop 1 is GONE and never "
+                "fully comes back."),
+            "the_seal_died": (
+                "An instant before the voice spoke, the chapel key — wherever "
+                "it was — burned to nothing. Bren felt it go. He is the first "
+                "person in town to understand that whatever did this wants "
+                "the dungeon open, and the way down now stands unsealed."),
         }
 
     # 8. The morning packet.

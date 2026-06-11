@@ -53,7 +53,8 @@ def enemy_stats(key: str, loop_count: int) -> dict:
 # ---------------------------------------------------------------- generation
 
 def generate(seed: int) -> None:
-    """Rebuild the whole dungeon for this loop. Wipes rooms and edges."""
+    """Rebuild the whole dungeon for this loop. Wipes rooms and edges
+    (including the day-1 tutorial floor — the loop owns the architecture)."""
     c = db.conn()
     c.execute("DELETE FROM rooms")
     c.execute("DELETE FROM room_edges")
@@ -70,7 +71,57 @@ def generate(seed: int) -> None:
     heart_id = _make_room(c, 4, "artifact", heart_name)
     _link(c, prev_gate, boss_id, "down", "up")
     _link(c, boss_id, heart_id, heart_name, boss_name)
+    # §14: what you killed before the loop began, the loop can bring back.
+    # Rarely, deep, somewhere else — proof of what owns death down here.
+    if db.game()["loop_count"] >= 5 and rng.random() < 0.12:
+        rooms3 = c.execute(
+            "SELECT id FROM rooms WHERE floor=3 AND room_type='enemy'"
+        ).fetchall()
+        if rooms3:
+            c.execute("UPDATE rooms SET enemy_key='the_sealed_thing' WHERE id=?",
+                      (rng.choice(rooms3)["id"],))
     c.commit()
+
+
+SEAL_DOOR_TEXT = (
+    "The way down is a single slab door, older than the town, chapel wax "
+    "thick in its seams. The wax is sweating black. Thin veins of dark fire "
+    "crawl the stone like something breathing behind it — and then the door "
+    "opens, from the other side. What comes through could never get out. "
+    "Tonight, every lock in this town is being undone, one by one, and it "
+    "knew before anyone."
+)
+
+
+def build_tutorial() -> None:
+    """§14: the pre-loop upper dark — handcrafted, identical for every save.
+    Floor 0. Dies with the first regeneration at midnight."""
+    c = db.conn()
+    mouth = _make_room(c, 0, "empty", "Boarded Mouth")
+    ante = _make_room(c, 0, "empty", "Picked-Over Antechamber")
+    camp = _make_room(c, 0, "treasure", "Old Expedition Camp")
+    gallery = _make_room(c, 0, "enemy", "Collapsed Gallery", "rat_swarm")
+    crawl = _make_room(c, 0, "enemy", "Bone Crawl", "giant_spider")
+    seal = _make_room(c, 0, "seal", "The Inner Seal", "the_sealed_thing")
+    _link(c, mouth, ante, "Picked-Over Antechamber", "Boarded Mouth")
+    _link(c, ante, camp, "Old Expedition Camp", "Picked-Over Antechamber")
+    _link(c, ante, gallery, "Collapsed Gallery", "Picked-Over Antechamber")
+    _link(c, gallery, crawl, "Bone Crawl", "Collapsed Gallery")
+    _link(c, gallery, seal, "The Inner Seal", "Collapsed Gallery")
+    _link(c, seal, floor_entrance(1)["id"], "down", "up")
+    c.commit()
+
+
+def _tutorial_mouth():
+    return db.conn().execute(
+        "SELECT * FROM rooms WHERE floor=0 ORDER BY id LIMIT 1"
+    ).fetchone()
+
+
+def seal_fight_won() -> bool:
+    return db.conn().execute(
+        "SELECT 1 FROM rooms WHERE floor=0 AND room_type='seal' AND cleared=1"
+    ).fetchone() is not None
 
 
 def _gen_floor(c, floor: int, rng: random.Random, pool: dict) -> tuple[int, int]:
@@ -188,7 +239,8 @@ def exits(room_id: int) -> list[dict]:
         for e in edges_from(room_id)
     ]
     r = room(room_id)
-    if r["floor"] == 1 and floor_entrance(1)["id"] == room_id:
+    if ((r["floor"] == 1 and floor_entrance(1)["id"] == room_id)
+            or (r["floor"] == 0 and _tutorial_mouth()["id"] == room_id)):
         out.append({"label": "out", "to_room": None, "known": True})
     return out
 
@@ -205,27 +257,19 @@ def entered_this_loop() -> bool:
 def descend(floor: int) -> dict:
     """'You remember the way' — jump to a floor's entrance (§9).
 
-    On loop 1 the mouth is still sealed (§14/§20): chapel-key holders get
-    the dead dungeon, floor 1 only, the way down buried."""
+    On loop 1 (§14): you can pry the boards and enter the upper dark — the
+    handcrafted tutorial floor. The way deeper is the chapel's inner seal."""
     g = db.game()
     if g["area"] == "town" and g["location"] != "dungeon_mouth":
         return {"error": "You must be at the dungeon mouth to descend."}
     if g["loop_count"] == 1:
-        has_key = db.conn().execute(
-            "SELECT 1 FROM inventory WHERE item_key='chapel_key'"
-        ).fetchone()
-        if not has_key:
-            return {"error": "The mouth is sealed — chapel wax over old "
-                             "iron, twenty years of it. The watch would also "
-                             "like a word about why you're touching it."}
-        if floor != 1:
-            return {"error": "There is only the first dark. The way deeper "
-                             "is buried."}
-        out = enter(floor_entrance(1)["id"])
+        out = enter(_tutorial_mouth()["id"])
         out["pre_loop_dungeon"] = (
-            "This is the dead dungeon, sealed for twenty years: dust, "
-            "silence, and whatever was sealed in with it. The stairs down "
-            "are buried under old collapse. Narrate a tomb, not a gauntlet.")
+            "The upper dark, boarded for twenty years: dust, old bones, a "
+            "dead expedition's leavings, and a few things that fed on the "
+            "dark. The way deeper is the chapel's sealed door. Narrate a "
+            "tomb — until it isn't. (The watch would not approve of the "
+            "pried boards.)")
         return out
     if not 1 <= floor <= FLOORS:
         return {"error": f"There is no floor {floor}."}
@@ -239,15 +283,27 @@ def move(label: str) -> dict:
     if g["area"] != "dungeon":
         return {"error": "You are not in the dungeon."}
     cur = int(g["location"])
-    if label.lower() in ("out", "leave") and floor_entrance(1)["id"] == cur:
+    r = room(cur)
+    at_exit = (floor_entrance(1)["id"] == cur if r["floor"] == 1
+               else (r["floor"] == 0 and _tutorial_mouth()["id"] == cur))
+    if label.lower() in ("out", "leave") and at_exit:
         db.set_game(area="town", location="dungeon_mouth")
         return {"area": "town", "location": "dungeon_mouth",
                 "note": "You climb back out into the grey daylight."}
     for e in edges_from(cur):
         if e["label"].lower() == label.lower():
-            if e["label"] == "down" and g["loop_count"] == 1:
-                return {"error": "The stairway down is buried under twenty "
-                                 "years of collapse."}
+            if e["label"] == "down" and r["floor"] == 0:
+                # The inner seal: the thing must be dead and the key in hand.
+                if not r["cleared"]:
+                    return {"error": "The seal door hangs broken — and what "
+                                     "came through it is still in the room."}
+                has_key = db.conn().execute(
+                    "SELECT 1 FROM inventory WHERE item_key='chapel_key'"
+                ).fetchone()
+                if not has_key:
+                    return {"error": "Past the broken slab, the chapel's "
+                                     "inner wards still hold the stair. "
+                                     "Bren keeps what's left of the seal."}
             return enter(e["to_room"])
     return {"error": f"No exit '{label}' from here.", "exits": exits(cur)}
 
@@ -271,10 +327,28 @@ def enter(room_id: int) -> dict:
         out["combat_required"] = True
         out["enemy_key"] = r["enemy_key"]
         out["from_location"] = came_from  # a successful flee retreats here
+    elif r["room_type"] == "seal" and not r["cleared"]:
+        # §14: the loop is picking the locks hours early. Bone-chilling, then
+        # the fight — nobody, Bren included, knew this was at the door.
+        out["the_door"] = SEAL_DOOR_TEXT
+        out["combat_required"] = True
+        out["enemy_key"] = r["enemy_key"]
+        out["from_location"] = came_from
     elif r["room_type"] == "trap" and not r["cleared"]:
         out.update(_spring_trap(r))
     elif r["room_type"] == "treasure" and not r["cleared"]:
-        out.update(_open_cache(r))
+        if r["floor"] == 0:
+            # The dead expedition's camp: the locket is always here.
+            db.update("rooms", r["id"], cleared=1)
+            player.add_item("delvers_locket")
+            db.set_player(gold=db.player()["gold"] + 12)
+            out["treasure"] = {
+                "item": "delvers_locket", "gold": 12,
+                "note": ("A dead delver's locket, twenty years in the dust. "
+                         "Garrick will know whose it was."),
+            }
+        else:
+            out.update(_open_cache(r))
     elif r["room_type"] == "artifact":
         out["artifact_here"] = not db.game()["has_artifact"]
     return out
@@ -326,6 +400,11 @@ def mark_cleared(room_id: int) -> list[str]:
     g = db.game()
     guards_stairs = (r["room_type"] == "boss"
                      or any(e["label"] == "down" for e in edges_from(room_id)))
+    if g["loop_count"] == 1 and guards_stairs and r["floor"] > 0:
+        # §14: nothing you prove before the first midnight is remembered.
+        notes.append("Whatever you cleared down here, the night will not "
+                     "keep it. (No floor progress is saved on loop 1.)")
+        return notes
     if guards_stairs and r["floor"] > g["max_floor_cleared"]:
         db.set_game(max_floor_cleared=r["floor"])
         from wyt_mcp.engine import tuning

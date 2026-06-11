@@ -467,15 +467,15 @@ def statuses_of(npc_id: int) -> list[str]:
 # exactly what this person can truthfully know about the loop. Wendel gets a
 # median line like everyone else — a missing entry would itself be a tell.
 WHAT_THEY_KNOW = {
-    "garrick": ("Twenty years ago he led men into the dungeon and came back "
-                "the only survivor of the second floor. He ordered the mouth "
-                "sealed; the chapel did it; the watch has enforced it since. "
-                "His firsthand knowledge is real and twenty years stale — the "
-                "dungeon the loop opens REARRANGES nightly, and it didn't "
-                "used to. Below his old second-floor mark he knows nothing. "
-                "He knows the name Malgor only from the proclamation; he has "
-                "checked the watch records twice by lamplight, and there is "
-                "nothing."),
+    "garrick": ("Twenty years ago he led men into the depths and came back "
+                "the only survivor of the second floor. The chapel sealed "
+                "the way down; the watch boarded the mouth and has kept "
+                "people off it since. His firsthand knowledge is real and "
+                "twenty years stale — the dungeon the loop opens REARRANGES "
+                "nightly, and it didn't used to. Below his old second-floor "
+                "mark he knows nothing. He knows the name Malgor only from "
+                "the proclamation; he has checked the watch records twice "
+                "by lamplight, and there is nothing."),
     "tobias":  ("Hears everyone's accounts over the bar, so he knows the "
                 "town's mood better than anyone. No secret lore — just a "
                 "barman's arithmetic of who is fraying and who is pretending "
@@ -486,15 +486,16 @@ WHAT_THEY_KNOW = {
                 "woken remembering it like everyone. Nothing else."),
     "sela":    ("Knows her ovens, her flour counts, and which regulars have "
                 "stopped coming around. Nothing else."),
-    "bren":    ("Keeper of the seal: he performed the rite that closed the "
-                "dungeon mouth twenty years ago, after Garrick's men didn't "
-                "come back, and he holds the chapel key. He knows the seal "
-                "did not fail at the first midnight — it was broken FROM THE "
-                "OUTSIDE, and whatever broke it is stronger than the chapel. "
-                "Scripture has nothing for this. He knows the name Malgor "
-                "only from the proclamation. (Anything stranger he says "
-                "comes only from server-provided clue lines — never invent "
-                "prophecy for him.)"),
+    "bren":    ("Keeper of the inner seal: he performed the rite that closed "
+                "the way down twenty years ago, after Garrick's men didn't "
+                "come back, and he holds its key. He did NOT know anything "
+                "was living against the other side of his door. From loop 2: "
+                "his key burned to nothing an instant BEFORE the voice spoke "
+                "— he is the first in town to understand that whatever did "
+                "this wants the dungeon open. Scripture has nothing for "
+                "this. He knows the name Malgor only from the proclamation. "
+                "(Anything stranger he says comes only from server-provided "
+                "clue lines — never invent prophecy for him.)"),
     "dorrin":  ("Knows his ledgers, which stopped adding up the day the "
                 "world started repeating. Nothing else."),
     "wendel":  ("Knows his chickens and his little shelf of charms. He knows "
@@ -586,6 +587,56 @@ def withdrawn_refusal(n) -> dict:
         "note": ("They register you, maybe. They do not answer. "
                  "Narrate the silence; do not invent dialogue for them."),
     }
+
+
+# ---------------------------------------------------------------- the inner seal (§14)
+
+def request_chapel_key(answer: str, sincerity: str) -> dict:
+    """Day 1's moral exam. The deed first (the thing at the door, dead),
+    then the question. Bren remembers the answer verbatim, forever —
+    whatever he decides."""
+    from wyt_mcp.engine import dungeon  # function-local: avoids cycles
+
+    g = db.game()
+    b = db.npc("bren")
+    if b is None or b["dead_this_loop"] or b["missing_this_loop"]:
+        return {"error": "Bren is not here to ask."}
+    if g["loop_count"] != 1:
+        return {"refused": True,
+                "note": ("The seal is past mattering now. His key burned the "
+                         "night the voice spoke; he will tell you so himself.")}
+    asked = db.conn().execute(
+        "SELECT 1 FROM npc_memories WHERE npc_id=? AND event_text LIKE "
+        "'Asked for the key%'", (b["id"],)
+    ).fetchone()
+    if asked:
+        return {"refused": True, "final": True,
+                "note": "He has already given his answer. He remembers yours."}
+    if not dungeon.seal_fight_won():
+        return {"refused": True,
+                "note": ("The chapel's answer has been no for twenty years. "
+                         "Nothing about today has changed his mind — yet.")}
+    if sincerity not in ("honest", "uncertain", "selfish", "flippant"):
+        return {"error": "sincerity must be honest | uncertain | selfish | flippant"}
+    said = (answer or "").strip()[:140]
+    if sincerity in ("honest", "uncertain"):
+        player.add_item("chapel_key")
+        add_memory("bren",
+                   f"Asked for the key to the deep, having killed what came "
+                   f"through his seal. When he asked why, they said: "
+                   f"'{said}'. He believed them.", "witnessed", +3)
+        return {"granted": True, "item": "chapel_key",
+                "gm_note": ("Bren deliberates — actually deliberates, turning "
+                            "the old key over in his hands — and then gives "
+                            "it. Reluctantly. 'Bring it back. And bring "
+                            "yourself back.'")}
+    add_memory("bren",
+               f"Asked for the key to the deep. When he asked why, they "
+               f"said: '{said}'. He refused.", "witnessed", -4)
+    return {"refused": True, "final": True,
+            "gm_note": ("Bren closes his hand around the key. 'No.' He does "
+                        "not explain and he does not argue. He will remember "
+                        "what they said, word for word, for a very long time.")}
 
 
 # ---------------------------------------------------------------- the crime machine (§16)

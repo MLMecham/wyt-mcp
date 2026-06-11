@@ -92,5 +92,12 @@
     "price": 80,
     "shop": "general",
     "premium": true
+  },
+  {
+    "key": "delvers_locket",
+    "name": "A Delver's Locket",
+    "price": 5,
+    "shop": null,
+    "note": "Twenty years old. Garrick will know whose it was."
   }
 ]

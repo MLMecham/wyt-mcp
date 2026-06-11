@@ -195,9 +195,13 @@ def use_consumable(item_key: str) -> dict:
     cons = consumable_index()
     if item_key not in cons:
         return {"error": f"'{item_key}' is not usable."}
+    item = cons[item_key]
+    if not any(k in item for k in ("heal", "mana", "resolve", "buff",
+                                   "reveal_town")):
+        return {"error": f"{item['name']} isn't for using. It's for keeping."}
     if not remove_item(item_key):
         return {"error": "You don't have that."}
-    item, notes = cons[item_key], []
+    notes = []
     if item.get("heal"):
         heal(hp=item["heal"])
         notes.append(f"+{item['heal']} HP")

@@ -452,14 +452,27 @@ barter/quests beyond the fence buy-back, additional Garrick family NPCs.
    anything — becomes a rescue: Captain Garrick drags the player back (1 HP, a cot at the
    watch house, talk and rest). The first death the player experiences must be everyone's,
    at midnight. No explanation for the luck is ever given.
-   **The dungeon is sealed on the ordinary day** — chapel wax over old iron, twenty years
-   of it (§20). `descend` refuses on loop 1 unless the player holds the **chapel key**
-   (Bren keeps it; acquisition ships with the npc_reward/quest plumbing — the game's
-   first authored quest). With the key they get the **dead dungeon**: floor 1 only, dust
-   and whatever was sealed in, the way down buried under old collapse, one old cache (a
-   dead delver's locket Garrick recognizes). A tomb, not a gauntlet — preview, never
-   progression. The first midnight splits the seal, and loop 2's morning includes the
-   sight of the mouth standing open for the first time in twenty years.
+   **The day-1 dungeon (locked after run 01):** the mouth is merely boarded — a
+   determined player can enter the **upper dark** on loop 1: a handcrafted tutorial
+   floor (floor 0, identical every save — pre-loop means pre-randomization). A few weak
+   sealed-in scavengers as a battle tutorial, a chest, and the dead expedition's camp
+   with **the delver's locket** (Garrick knows whose it was). At the far end: the
+   chapel's **inner seal** on the way down. As the player reaches it, the beat turns —
+   the wax sweating black, veins of the barrier's dark fire in the stone (the loop is
+   already picking the town's locks, hours before midnight) — and **the door opens from
+   the other side.** What comes through could never get out; nobody, Bren included, knew
+   it was there. The fight is mandatory by geometry, tuned so most first players lose —
+   and the loop-1 rescue fires: Garrick goes back into the place that killed his men to
+   carry you out. **Kill it and come back, and that's the proof**: Bren — keeper of the
+   inner seal's key — asks his question of morality (`request_chapel_key`: GM judges the
+   answer; honesty or admitted uncertainty earns the key, greed/bravado/flippancy is
+   refused finally; **Bren remembers the answer verbatim, forever, either way**). The key
+   opens the stair to the real floors that same day — but **no floor progress saves on
+   loop 1**; XP and loot stay (they live in the body), architecture doesn't. At the first
+   midnight **the key burns to nothing an instant before the proclamation** — Bren is the
+   first to know whatever spoke wants the dungeon open. And the thing you killed before
+   the loop existed? Some later loop, deep on a randomized floor, it's there again —
+   proof of what owns death down there.
 3. **Midnight — the proclamation.** A voice in every head as the nightmare begins, kept
    nearly verbatim from the original game, heard once and never again:
    > *"Foolish mortals! I am Malgor, and your time is mine to command! In the depths of the
@@ -740,11 +753,12 @@ packets as `what_they_know`.
   watch, not anyone. The not-knowing is the point.
 - **There were no loops before loop 1, and no prior loopers.** Nobody "already knew."
   Nobody scratched warnings before it began.
-- **The dungeon was sealed twenty years ago**, after Captain Garrick's expedition came
-  back one man strong — him. The chapel performed the seal (Bren keeps the rite and the
-  key); the watch enforced it; nobody has been inside since. **The first midnight broke
-  the seal from the outside** — Bren knows this, and knows what it implies: whatever
-  opened it is stronger than the chapel.
+- **The way down was sealed twenty years ago**, after Captain Garrick's expedition came
+  back one man strong — him. The chapel performed the inner seal (Bren keeps the rite
+  and the key); the watch boarded the mouth. Nobody — Bren included — knew anything was
+  living against the other side of his door. **At the first midnight every lock in town
+  is undone at once: the key burns to nothing an instant before the proclamation**, and
+  Bren is the first to understand that whatever spoke wants the dungeon open.
 - **Garrick's dungeon knowledge is real and useless.** He reached the second floor once.
   But the loop rebuilds the dungeon nightly — *it didn't used to rearrange* — so his maps
   are twenty years stale and below his old mark nobody knows anything, the GM included.

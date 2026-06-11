@@ -193,5 +193,17 @@
     "spd": 6,
     "xp": 40,
     "gold": 30
+  },
+  {
+    "key": "the_sealed_thing",
+    "name": "What the Seal Held",
+    "floor": 0,
+    "boss": true,
+    "hp": 55,
+    "str": 12,
+    "def": 4,
+    "spd": 6,
+    "xp": 45,
+    "gold": 0
   }
 ]
