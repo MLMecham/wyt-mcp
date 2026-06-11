@@ -26,7 +26,8 @@ BRANCH_WEIGHTS = [("treasure", 35), ("enemy", 25), ("trap", 25), ("empty", 15)]
 
 
 def scale(loop_count: int) -> float:
-    return 1 + 0.08 * (loop_count - 1)
+    from wyt_mcp.engine import tuning
+    return 1 + tuning.DUNGEON_SCALE_PER_LOOP * (loop_count - 1)
 
 
 def enemy_index() -> dict:
@@ -301,7 +302,9 @@ def mark_cleared(room_id: int) -> list[str]:
                      or any(e["label"] == "down" for e in edges_from(room_id)))
     if guards_stairs and r["floor"] > g["max_floor_cleared"]:
         db.set_game(max_floor_cleared=r["floor"])
-        player.change_resolve(+4, f"cleared dungeon floor {r['floor']}")
+        from wyt_mcp.engine import tuning
+        player.change_resolve(tuning.RESOLVE_FLOOR_CLEAR,
+                              f"cleared dungeon floor {r['floor']}")
         notes.append(f"Floor {r['floor']} cleared — you'll remember the way.")
         bonus = 25 * r["floor"]  # first-ever clear only; never re-grindable
         notes.append(f"+{bonus} xp for charting the way down.")

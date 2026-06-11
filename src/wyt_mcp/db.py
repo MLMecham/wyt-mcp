@@ -59,6 +59,9 @@ CREATE TABLE IF NOT EXISTS game (
     dungeon_seed INTEGER NOT NULL,
     max_floor_cleared INTEGER NOT NULL DEFAULT 0,
     intro_done INTEGER NOT NULL DEFAULT 0,
+    floor_at_dawn INTEGER NOT NULL DEFAULT 0,   -- max_floor_cleared at last reset; derives retreats
+    garrick_warning_loop INTEGER,               -- §16: the one warning day (NULL = not fired)
+    garrick_failed INTEGER NOT NULL DEFAULT 0,  -- §16: the valve, open permanently
     has_artifact INTEGER NOT NULL DEFAULT 0,
     wizard_revealed INTEGER NOT NULL DEFAULT 0,
     ended INTEGER NOT NULL DEFAULT 0,

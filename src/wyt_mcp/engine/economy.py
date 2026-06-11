@@ -3,10 +3,11 @@
 import random
 
 from wyt_mcp import db
+from wyt_mcp.engine import tuning
 
 
 def gold_multiplier(loop_count: int) -> float:
-    return 1.0 + 0.15 * (loop_count - 1)
+    return 1.0 + tuning.GOLD_ROT_PER_LOOP * (loop_count - 1)
 
 
 def price_for(base_price: int, npc) -> dict:
@@ -20,9 +21,9 @@ def price_for(base_price: int, npc) -> dict:
     return {"price": max(1, int(base_price * mult)), "fear_priced": fear}
 
 
-SELL_RATE = 0.5          # matching shop pays half an item's current price
-WRONG_SHOP_RATE = 0.25   # the wrong counter pays a quarter, if it pays at all
-FENCE_MARKUP = 2.5       # dens sell last night's takings back at extortion
+SELL_RATE = tuning.SELL_RATE
+WRONG_SHOP_RATE = tuning.WRONG_SHOP_RATE
+FENCE_MARKUP = tuning.FENCE_MARKUP
 
 
 def _item_index() -> dict:

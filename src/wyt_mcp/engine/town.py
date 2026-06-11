@@ -14,7 +14,7 @@ never names.
 import random
 
 from wyt_mcp import db
-from wyt_mcp.engine import player
+from wyt_mcp.engine import player, tuning
 
 # What each location IS. Where it sits comes from town_edges.
 # desc = what the GM may say about it before it's been visited.
@@ -215,8 +215,6 @@ def ask_directions(npc_key: str, rng: random.Random) -> dict:
 
 AMBUSH_DEN = ["cutpurse", "den_thug", "mad_penitent"]
 AMBUSH_STREET = ["cutpurse", "feral_dog", "mad_penitent", "drunkard"]
-FLAT_RISK = 0.15
-SCALING_CAP = 0.35
 
 
 def town_avg_sanity() -> float:
@@ -231,11 +229,11 @@ def ambush_chance(key: str) -> float:
     if loc is None or loc["risk_kind"] is None:
         return 0.0
     if loc["risk_kind"] == "flat":
-        return FLAT_RISK
+        return tuning.FLAT_RISK
     loop = db.game()["loop_count"]
-    base = max(0.0, (loop - 3) * 0.025)
+    base = max(0.0, (loop - tuning.SCALING_GRACE_LOOPS) * tuning.SCALING_PER_LOOP)
     decay_factor = 1.5 - town_avg_sanity() / 100.0   # 0.5 healthy → 1.5 broken
-    return min(SCALING_CAP, base * decay_factor)
+    return min(tuning.SCALING_CAP, base * decay_factor)
 
 
 def roll_ambush(key: str, rng: random.Random) -> str | None:
@@ -252,12 +250,32 @@ def park_rest() -> dict:
     g, p = db.game(), db.player()
     if p["park_rested_loop"] == g["loop_count"]:
         return {"note": "You have already taken what the green has to give today."}
-    if town_avg_sanity() < 55:
+    if town_avg_sanity() < tuning.PARK_SAFE_SANITY:
         return {"note": ("You sit a while. It doesn't help anymore — the grass "
                          "is trodden and somebody is crying two benches down.")}
     db.set_player(park_rested_loop=g["loop_count"])
-    new = player.change_resolve(+2, "an hour on the green, pretending")
-    return {"resolve": new, "note": "An hour where the loop feels far away. +2 resolve."}
+    new = player.change_resolve(tuning.PARK_REST, "an hour on the green, pretending")
+    return {"resolve": new,
+            "note": f"An hour where the loop feels far away. +{tuning.PARK_REST} resolve."}
+
+
+def tavern_rest() -> dict:
+    """An evening with Tobias — the only reliable resolve restore (§9).
+    Once per loop, and the well can dry up."""
+    g, p = db.game(), db.player()
+    t = db.npc("tobias")
+    if t is None or t["dead_this_loop"] or t["missing_this_loop"]:
+        return {"note": "The tavern is dark. No fire, no Tobias. Not tonight."}
+    if t["withdrawn"] or tier(t["sanity"]) == "gone":
+        return {"note": ("Tobias pours without looking at you. The fire is lit "
+                         "and the room is still cold. The well is dry.")}
+    if p["tavern_rested_loop"] == g["loop_count"]:
+        return {"note": "You've already had your evening. The night is the night."}
+    db.set_player(tavern_rested_loop=g["loop_count"])
+    new = player.change_resolve(tuning.TAVERN_REST, "an evening at the Last Hearth")
+    return {"resolve": new,
+            "note": (f"Tobias keeps the cup full and the talk small. "
+                     f"+{tuning.TAVERN_REST} resolve.")}
 
 
 def tier(sanity: int) -> str:
@@ -354,7 +372,8 @@ def decay_all(loop_count: int, rng: random.Random) -> list[str]:
     notes = []
     for n in db.npcs_all():
         traits = n["traits"].split(",") if n["traits"] else []
-        decay = n["base_decay"] + rng.randint(0, max(0, loop_count // 3))
+        decay = n["base_decay"] + rng.randint(
+            0, max(0, loop_count // tuning.DECAY_LOOP_DIVISOR))
         if "resilient" in traits:
             decay = max(1, decay // 2)
         if "fragile" in traits:
@@ -565,18 +584,40 @@ def restock_shops(rng: random.Random) -> None:
     c.commit()
 
 
-def run_robberies(loop_count: int, rng: random.Random) -> list[str]:
-    """advance_loop step 4. Garrick's sanity tier is the crime valve:
-    holding on — the watch holds; fraying — coin flip per store;
-    unraveling/gone — every store, every night. Irreversible in v1."""
-    t = garrick_tier()
-    if t == "holding on":
-        return []
-    notes, c = [], db.conn()
+def check_garrick_valve(loop_count: int) -> str | None:
+    """advance_loop step 3.5: the valve with one day of warning (§16).
+
+    Returns 'warning' (the singular signal for the packet), 'opened' (word
+    gets out that public order is over — permanent), or None.
+    """
+    g = db.game()
+    if g["garrick_failed"]:
+        return None
+    if garrick_tier() in ("unraveling", "gone"):
+        if g["garrick_warning_loop"] is None:
+            db.set_game(garrick_warning_loop=loop_count)
+            return "warning"
+        if g["garrick_warning_loop"] < loop_count:
+            db.set_game(garrick_failed=1)
+            return "opened"
+    elif g["garrick_warning_loop"] is not None:
+        # Pulled back over the line in time. The warning can fire again someday.
+        db.set_game(garrick_warning_loop=None)
+    return None
+
+
+def run_robberies(loop_count: int, rng: random.Random) -> None:
+    """advance_loop step 4. Once the valve is open: every store, every night.
+
+    Never announced — the robbery writes a memory on the shopkeeper and the
+    rumor system, their own account, and the empty shelf carry the news.
+    The server stops narrating and lets the town do it (§16).
+    """
+    if not db.game()["garrick_failed"]:
+        return
+    c = db.conn()
     consumables = {i["key"]: i for i in db.load_data("consumables")}
     for store_key in GENERAL_STORES:
-        if t == "fraying" and rng.random() < 0.5:
-            continue
         store = location(store_key)
         taken = c.execute(
             "SELECT * FROM shop_stock WHERE location_key=? AND premium=1",
@@ -588,8 +629,14 @@ def run_robberies(loop_count: int, rng: random.Random) -> list[str]:
             "UPDATE shop_stock SET location_key=? WHERE location_key=? AND premium=1",
             (store["paired_den"], store_key),
         )
-        notes.append(f"{store['name']} was broken into in the night. "
-                     "The good stock is gone.")
+        keeper = c.execute(
+            "SELECT key FROM npcs WHERE location=?", (store_key,)
+        ).fetchone()
+        if keeper:
+            add_memory(keeper["key"],
+                       "They came in the night again and took the good stock. "
+                       "Everyone knows the watch won't come.", "witnessed", -3,
+                       loop_count)
         # The crew samples its own takings: tonight's gatekeeper fights enhanced.
         buffs = [r for r in taken if consumables.get(r["item_key"], {}).get("buff")]
         if buffs and rng.random() < 0.5:
@@ -598,7 +645,6 @@ def run_robberies(loop_count: int, rng: random.Random) -> list[str]:
             c.execute("UPDATE town_locations SET den_buff=? WHERE key=?",
                       (drunk["item_key"], store["paired_den"]))
     c.commit()
-    return notes
 
 
 def den_stock(den_key: str) -> list:
@@ -641,20 +687,29 @@ GARRICK_SUPPORT_TEXT = "You came by the watch house just to stand with him."
 
 
 def support_garrick() -> dict:
-    """Talking to Garrick holds him together a little — once per loop (§16)."""
-    g = db.npc("garrick")
-    loop = db.game()["loop_count"]
-    if g is None or g["dead_this_loop"]:
+    """Talking to Garrick holds him together a little — once per loop (§16).
+    On the warning day it counts for much more: he needed someone."""
+    n = db.npc("garrick")
+    g = db.game()
+    loop = g["loop_count"]
+    if n is None or n["dead_this_loop"]:
         return {}
     already = db.conn().execute(
         "SELECT 1 FROM npc_memories WHERE npc_id=? AND loop_count=? AND event_text=?",
-        (g["id"], loop, GARRICK_SUPPORT_TEXT),
+        (n["id"], loop, GARRICK_SUPPORT_TEXT),
     ).fetchone()
     if already:
         return {}
+    warning_day = (not g["garrick_failed"]
+                   and g["garrick_warning_loop"] == loop)
+    boost = tuning.GARRICK_WARNING_SUPPORT if warning_day else tuning.GARRICK_SUPPORT
     add_memory("garrick", GARRICK_SUPPORT_TEXT, "witnessed", +2)
-    db.update("npcs", g["id"], sanity=min(100, g["sanity"] + 2))
-    return {"gm_note": "Standing with Garrick steadies him a little. (+2 sanity)"}
+    db.update("npcs", n["id"], sanity=min(100, n["sanity"] + boost))
+    if warning_day:
+        return {"gm_note": ("He looks at you like a man pulled back from a "
+                            "ledge. Today, of all days, someone came. "
+                            f"(+{boost} sanity)")}
+    return {"gm_note": f"Standing with Garrick steadies him a little. (+{boost} sanity)"}
 
 
 def garrick_heartened(amount: int, text: str) -> None:
@@ -663,7 +718,8 @@ def garrick_heartened(amount: int, text: str) -> None:
     if g is None:
         return
     add_memory("garrick", text, "rumor", +3)
-    db.update("npcs", g["id"], sanity=min(100, db.npc("garrick")["sanity"] + amount))
+    db.update("npcs", g["id"],
+              sanity=min(100, db.npc("garrick")["sanity"] + amount))
 
 
 def shopkeeper_murdered(n) -> list[str]:

@@ -116,7 +116,8 @@ def power_score() -> int:
 
 
 def xp_needed(level: int) -> int:
-    return 25 * level
+    from wyt_mcp.engine import tuning
+    return tuning.XP_PER_LEVEL * level
 
 
 def gain_xp(amount: int) -> list[str]:

@@ -18,7 +18,7 @@ AUTO_THREAT_MAX (or any boss) refuses auto outright.
 import random
 
 from wyt_mcp import db
-from wyt_mcp.engine import dungeon, effects, player, town
+from wyt_mcp.engine import dungeon, effects, player, town, tuning
 
 DANGER_FRACTION = 0.30
 AUTO_THREAT_MAX = 1.25
@@ -374,7 +374,7 @@ def _npc_killed(row) -> list[str]:
     witnesses = [k for k in town.witnesses_at(n["location"]) if k != n["key"]]
     town.broadcast(witnesses, f"They watched you kill {n['name']}.", -8)
     player.add_conduct(brutality=2)
-    player.change_resolve(-8, f"you killed {n['name']}")
+    player.change_resolve(tuning.RESOLVE_KILL_NPC, f"you killed {n['name']}")
     notes = [f"{n['name']} is dead. Until midnight, anyway."]
     if n["shop"]:
         notes += town.shopkeeper_murdered(n)

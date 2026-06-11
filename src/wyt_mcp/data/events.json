@@ -1,42 +1,72 @@
 [
   {
-    "key": "theft_player", "min_loop": 3, "weight": 3, "effect": "steal_player_gold",
+    "key": "theft_player",
+    "min_loop": 3,
+    "weight": 3,
+    "effect": "steal_player_gold",
     "text": "Someone went through your things in the night. Your coin purse is lighter."
   },
   {
-    "key": "theft_npc", "min_loop": 3, "weight": 3, "effect": "npc_sanity_hit",
+    "key": "theft_npc",
+    "min_loop": 3,
+    "weight": 3,
+    "effect": "npc_sanity_hit",
     "text": "{npc}'s stores were ransacked overnight. Nobody saw anything. Nobody ever sees anything."
   },
   {
-    "key": "house_fire", "min_loop": 5, "weight": 2, "effect": "npc_sanity_hit_big",
+    "key": "house_fire",
+    "min_loop": 5,
+    "weight": 2,
+    "effect": "npc_sanity_hit_big",
     "text": "A fire took {npc}'s home in the small hours. The bucket line was slow to form — what's the point, it'll be back tomorrow. The smoke stain on the sky won't be."
   },
   {
-    "key": "kidnapping", "min_loop": 6, "weight": 2, "effect": "npc_missing",
+    "key": "kidnapping",
+    "min_loop": 6,
+    "weight": 2,
+    "effect": "npc_missing",
     "text": "{npc} is gone. The door stands open, breakfast half-made. Drag marks toward the outskirts."
   },
   {
-    "key": "vanishing", "min_loop": 5, "weight": 2, "effect": "npc_missing",
+    "key": "vanishing",
+    "min_loop": 5,
+    "weight": 2,
+    "effect": "npc_missing",
     "text": "{npc} didn't wake up where they should have. Some say they walked out the gate before dawn and just kept walking."
   },
   {
-    "key": "street_mob", "min_loop": 7, "weight": 2, "effect": "town_sanity_hit",
+    "key": "street_mob",
+    "min_loop": 7,
+    "weight": 2,
+    "effect": "town_sanity_hit",
     "text": "A mob formed in the square last night over nothing — a look, a rumor, a loaf. It dissolved at dawn, but everyone remembers who held a torch."
   },
   {
-    "key": "cult_meeting", "min_loop": 8, "weight": 2, "effect": "town_sanity_hit",
+    "key": "cult_meeting",
+    "min_loop": 8,
+    "weight": 2,
+    "effect": "town_sanity_hit",
     "text": "Chanting from the old mill past midnight. Hooded figures. They call themselves the Children of the Turning Day, and their number grows."
   },
   {
-    "key": "public_breakdown", "min_loop": 4, "weight": 3, "effect": "npc_sanity_hit_big",
+    "key": "public_breakdown",
+    "min_loop": 4,
+    "weight": 3,
+    "effect": "npc_sanity_hit_big",
     "text": "{npc} stood in the square at midnight screaming at the sky to just get it over with. People closed their shutters and listened."
   },
   {
-    "key": "vigil", "min_loop": 4, "weight": 1, "effect": "town_sanity_heal",
+    "key": "vigil",
+    "min_loop": 4,
+    "weight": 1,
+    "effect": "town_sanity_heal",
     "text": "Candles in every window last night — somebody organized a vigil. For a few hours the town remembered it was a town."
   },
   {
-    "key": "dead_silence", "min_loop": 9, "weight": 2, "effect": "player_despair",
+    "key": "dead_silence",
+    "min_loop": 9,
+    "weight": 2,
+    "effect": "player_despair",
     "text": "Nothing happened last night. No voices, no footsteps, no dogs. The town has begun holding its breath, and the silence is worse than the screaming."
   }
 ]

@@ -265,10 +265,13 @@ A loop is one day. `advance_loop` runs, in order:
    directly to any floor at or below `max_floor_cleared + 1` (difficulty still re-scales).
    Player knowledge is the one thing the loop preserves; this makes it mechanical.
 3. Decay all NPC sanity; roll gate flips and status candidates; reprice the economy.
-4. **Run the robberies (§16):** Garrick's sanity tier is the crime valve. While he's
-   holding on, nothing; fraying, each general store is hit on a coin flip; unraveling or
-   gone, every store, every night — premium stock moves to each store's paired den, and the
-   den gatekeeper may consume one of the buffs. Irreversible in v1 once he's gone.
+4. **Run the crime valve (§16):** while Garrick holds (holding on / fraying), nothing.
+   The night he crosses into unraveling is the **warning day** — no robbery yet, one
+   signal in the packet ("nobody has seen Captain Garrick; the watch didn't muster").
+   Pull his sanity back over the line by nightfall and order holds; fail, and the valve
+   opens **permanently**: every general store robbed every night, premium stock moving
+   to its paired den. Robberies are **never announced in the packet** — they write a
+   memory on the robbed shopkeeper, and the town tells the player itself.
 5. Spread rumors from yesterday's events.
 6. Roll 0–2 **overnight events** from `events.json`, weighted by loop count — early loops
    are quiet; later: thefts (including from the player), fires, disappearances,
@@ -292,6 +295,11 @@ packet so Claude can color the narration accordingly.
 The town isn't the only thing unraveling. `resolve` (0–100) drains on: dying, killing
 townsfolk, witnessing overnight horrors, failed dungeon runs. It recovers slightly from:
 kept promises, kindness, clearing dungeon floors — and the tavern.
+
+Drains are tuned light (`engine/tuning.py`) — the game should run many loops. Death and
+a failed run don't stack: if you died down there, you didn't retreat. A failed run only
+derives when the cause is `slept`. Truly idle days (no dungeon, no fight, no conversation
+all loop) add +1 despair; ordinary town days are legitimate play and cost nothing.
 
 **The tavern is the resolve anchor, and it can die.** Tobias the tavern keeper is the
 town's slowest-decaying NPC (`resilient`), and an evening in his tavern is the only
@@ -337,11 +345,12 @@ twist hidden from Claude itself.)*
 
 | Ending | Trigger | Flavor |
 |---|---|---|
-| **The Dawn** | Refuse him, kill him; resolve above threshold; town not fully broken | The loop breaks. The town wakes up remembering everything. They look at you and decide what you were. Epilogue generated per-NPC from their memory logs. |
+| **The Dawn** | Refuse him, kill him; resolve above threshold; town not fully broken | The loop breaks — and the final midnight is just another midnight: bodies and the town reset, **sanity does not**. Win fast and they can still heal; win slow and you free a village of ghosts. Epilogue generated per-NPC from memory logs *and* final sanity tier. |
 | **The Successor** | Kill him with resolve low or brutality high; or take the artifact for yourself | You understand, now, why he did it. The loop doesn't break. It changes hands. |
 | **The Despot** | Resolve 0 with brutality dominant (no descent required) | Insanity, outward. You rule the ruins of the day. |
 | **The Husk** | Resolve 0 with despair dominant | Insanity, inward. The loop continues without your participation. |
 | *(post-v1 slots)* | open | hand the artifact over (the bargain ending), deliberate despot, martyr, escape-alone... |
+| *(per-class S-endings)* | post-v1; one per class, criteria + dialog uniquely theirs | Not necessarily good — uniquely theirs. `endings.py` ships with a per-class trigger slot (returns nothing in v1) so the door is structural. |
 
 Many ways to lose; one narrow way to actually win — and the player has to stay sane enough,
 and human enough, to take it.
@@ -452,6 +461,12 @@ foreshadow it into the ground by loop 5. Server-side measures:
 - The reveal scene at the dungeon mouth arrives as an explicit packet from the
   artifact-pickup tool; until that moment, nothing in any tool output names him as anything
   but a townsman.
+- **He is NOT excluded from harm.** Overnight events can hit him; he can be kidnapped,
+  burned out, killed — he dies and comes back like the baker, because special-casing him
+  out of danger is itself a tell. The payoff: the reveal works *even if the player killed
+  Wendel that very morning* — you carry the artifact out and the man you've watched die
+  is standing at the dungeon mouth, hand out, not a scratch on him. Every death was
+  theater he permitted. (The reveal logic ignores his dead/missing flags.)
 
 General principle: **information the narrator shouldn't narrate must never enter its
 context.** The GM is also an audience.
@@ -513,20 +528,27 @@ was offered: +1 brutality. They drop a few coins.
 
 ### The crime machine
 
-**Garrick's sanity tier is the crime valve.**
+**Garrick's sanity is the crime valve — with exactly one day of warning.**
 
-| Garrick | Robberies |
+| Garrick | Crime |
 |---|---|
-| holding on | none — the watch holds |
-| fraying | each general store hit on a coin flip per night |
-| unraveling / gone | every store, every night — **irreversible in v1** |
+| holding on / fraying | none — the watch holds, even as he erodes invisibly |
+| the night he crosses into unraveling | **the warning day**: no robbery yet; the morning packet carries one signal — *"Nobody has seen Captain Garrick. The watch didn't muster."* |
+| warning day ends, sanity still under the line | the valve opens **permanently** (flag, irreversible in v1): every store, every night. Word gets out that public order is no longer a thing. |
+| warning day ends, sanity pulled back over the line | order holds; the warning can fire again someday |
 
+- The warning day is the singular day support is decisive: talking to Garrick that day
+  gives a larger boost than usual (he needed someone), and bloodying den crews stacks
+  on top.
 - Each general store is secretly **paired with one den** (randomized per save). The pairing
   is learnable — the robbed shopkeeper's account, rumors, Garrick admitting what he can't
   stop, or matching den loot to store tags. Knowledge is the loop-persistent currency.
 - Robberies run in `advance_loop` step 4: **premium stock** (`shop_stock.premium`) moves
   store → paired den. The den gatekeeper may consume one looted buff — apply it via the
   effects table; one line of code, and it sells that these goods are dangerous.
+- **Robberies are never announced in the overnight packet.** The robbery writes a memory
+  on the robbed shopkeeper; the rumor system, the shopkeeper's own account, and the empty
+  premium shelf carry the news. The server stops narrating and lets the town do it.
 - **The strong day-long temp buffs are den-loot only.** Day effects are wiped by
   `effects.clear_all()` at every reset, so the den raid and the big dungeon push must
   happen the *same day*. The raid is the pre-boss ritual.
@@ -555,3 +577,33 @@ was offered: +1 brutality. They drop a few coins.
   useful on every playthrough, and the secret wizard selling you a +1 ring like it's
   nothing deepens the §15 misdirection.
 - Item shop tags and wrong-shop sell penalties per §8.
+
+## 17. The Roads Not Taken — Unplayed Classes in the World
+
+Locked 2026-06-10; **build after the core engine runs end-to-end** (days → endings →
+render → server first). The three classes the player didn't pick exist as NPCs — your
+alternate lives are out there, living your alternate stories. Seeded conditionally at
+`create_save` (skip the one matching the player's class). Each rides on systems that
+already exist; one sharp hook apiece:
+
+- **The warrior** (Garrick's son) is in the dungeon trying to clear it himself — a rival
+  the player can meet mid-run. He carries a small hope counter that drains on his own
+  failed runs; kindness can shore it up. If it empties **he husks** — sits down in the
+  square one morning, mirroring the player's own husk ending — and watching his boy fold
+  is what breaks Garrick: the warning day (§16) fires early. The cascade needs no player
+  involvement at all; the world runs on its own clock.
+- **The archer**: a hunting party of three in the outskirts. Attack any one and all three
+  go permanently hostile as a unit — the town's only neutral muscle, lost in one swing.
+- **The mage**: a scholar who has befriended Wendel and loiters at the charm stall,
+  "studying the loop" — standing right next to the answer. Red herring and clue vector
+  in one (§15: his packet must never know what he's standing next to).
+- **The ninja**: from the mid-game, a stranger starts hunting the *player* —
+  assassination attempts via the ambush system in dens and the dungeon. He wants the
+  artifact too.
+
+## 18. Tuning
+
+All pacing knobs live in **`engine/tuning.py`** — one file: sanity decay rate, resolve
+drains, gold rot, dungeon scaling, ambush curves, robbery thresholds, rest amounts, the
+warning-day boost. `simulate.py` sweeps them headlessly. "The game dies too fast" should
+always be a one-line change.
