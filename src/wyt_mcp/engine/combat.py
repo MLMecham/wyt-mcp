@@ -83,9 +83,15 @@ def begin(enemy_key: str | None = None, npc_key: str | None = None,
         if n is None or n["dead_this_loop"]:
             return {"error": "No such opponent."}
         npc_id = n["id"]
-        if n["combat_tier"] == "wizard":
+        if n["combat_tier"] == "wizard" and g["wizard_revealed"]:
             stats = dungeon.enemy_stats("malgor", g["loop_count"])
             enemy_key, boss = "malgor", True
+        elif n["combat_tier"] == "wizard":
+            # §19: cover beats combat. Pre-reveal Wendel fights as a frail old
+            # man and dies like one — death is free for him; the disguise isn't.
+            # Boss stats here would be a §15 leak: one bar fight and Claude knows.
+            stats = dict(NPC_TIERS["weak"], boss=False)
+            boss = False
         else:
             stats = dict(NPC_TIERS[n["combat_tier"]], boss=False)
             boss = False

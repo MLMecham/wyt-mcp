@@ -418,6 +418,9 @@ barter/quests beyond the fence buy-back, additional Garrick family NPCs.
   `render.py` reused as-is.
 - **MCP Apps** (interactive HTML in chat) once support matures — clickable map.
 - Quests/promises system ("you said you'd save his daughter") — memories already support it.
+- **Altruism as the despair counterweight:** quest acts for NPCs and institutions (clergy
+  work, rebuilding, errands of mercy) reduce the player's despair while shoring up
+  townsfolk. Early game you save yourself; late game saving others is what saves you.
 - Deliberate despot path, more endings, difficulty settings, more NPCs, deeper dungeon.
 
 ## 14. The Intro
@@ -601,9 +604,95 @@ already exist; one sharp hook apiece:
   assassination attempts via the ambush system in dens and the dungeon. He wants the
   artifact too.
 
+**Each unplayed class carries one of the four shards (§19)** and guards it with their
+class's verb — warrior: hope, mage: knowledge, ninja: violence, archer: trust. The
+crossover content builds last, after both §17 and §19 cores.
+
 ## 18. Tuning
 
 All pacing knobs live in **`engine/tuning.py`** — one file: sanity decay rate, resolve
 drains, gold rot, dungeon scaling, ambush curves, robbery thresholds, rest amounts, the
 warning-day boost. `simulate.py` sweeps them headlessly. "The game dies too fast" should
 always be a one-line change.
+
+## 19. The Barrier & the Shards — Perma-Death
+
+Locked 2026-06-10; build after core, same shelf as §17 (the shard-holder crossover
+builds last). The loop's one rule — death isn't permanent — gets an exception, and the
+player decides who it applies to. Including themselves.
+
+### The barrier
+
+- A dark-energy wall at the town's edge (a location off the outskirts). The outside
+  world is visible through it and **does not reset** — the only place where time is real.
+- Touching it = instant death; the loop continues. A discoverable "skip this day" button,
+  priced as what it is: full death costs **plus extra despair** (walking into the wall is
+  a kind of giving up), and any witness remembers.
+- **The outsider arc** — server-authored beats at loop thresholds (the Bren-clue
+  machinery, §15), played almost without dialogue (nothing is heard through the wall;
+  mouthed words, held-up signs):
+  - ~loop 3: figures on the road. They've noticed the town isn't answering.
+  - ~loop 5: a sign held up. They're trying to organize help.
+  - ~loop 7: one of them — young, brave, impatient — touches the barrier reaching in.
+    Nothing outside resets. **His bloodstain is the only permanent mark in the player's
+    world**, there every dawn, unchanged.
+  - ~loop 10: the road is empty. They buried him, or gave up.
+
+### The shards
+
+- **Four shards exist.** One deep in the dungeon (floor 3+); the other three are carried
+  by the unplayed classes (§17). The despot tool and the escape key are the same object.
+- **The dark-energy gate before the artifact eats two.** The dungeon shard alone is never
+  enough — every playthrough must walk at least one road-not-taken to win.
+- **Shards are loop-persistent** — pact-stuff, the same substance as the barrier; the
+  loop cannot copy the thing that negates it. They persist like the player's inventory
+  and memories. Kill a holder and take theirs: they revive at midnight *without it*.
+- **Supercharging:** hold a shard and touch the barrier. The barrier kills you like it
+  kills everything; the shard, being the same substance, drinks the discharge — your
+  death is the crucible. One charge held at a time, full death costs every time. *You
+  spend the loop's gift to buy the one thing the loop forbids.*
+- **Erasure — `curse_corpse`:** kill them first, then choose, standing over someone who
+  will otherwise live again at midnight. Sets `gone_forever`; the reset skips them
+  forever. Consumes the shard. Heavy brutality. The town keeps its memories of the
+  erased — Sela setting out a loaf for someone who isn't anywhere.
+- Budget: 0–1 erasures, you can still leave; 2, exact with no margin; 3+, you have
+  burned the gate — and the town knows.
+
+### Wendel and the shards
+
+- **Pre-reveal, Wendel fights as a frail old man and dies like one** — his cover matters
+  more than his life, because death is free for him and the artifact isn't. He maintains
+  the disguise *through* death. (A boss-stat Wendel was a §15 leak — one bar fight and
+  the player knows.) Post-reveal: full Malgor.
+- **Fail an erasure attempt on him** (came at him with a charged shard and didn't finish
+  it): one silent retaliation. That night you die without witnesses, and you wake with
+  the charged shard **gone**. No packet note, no acknowledgment; his forged packet reads
+  normal, his eyes stay on you a beat too long. Never repeated, never a reveal — the
+  cover constraint disciplines everything he does.
+- **He never erases you, and neither can anyone else** wield it against you but one (see
+  The Erased): he *needs* you — the best retriever he's had in years. The most dangerous
+  thing in town is the one thing that can't afford to kill you.
+- Carry an unused charged shard to the reveal and his hand stays out a beat too long:
+  *"You found my splinter. Heavy, isn't it."*
+
+### Consequences
+
+- **The suspicion gradient:** an erasure can't be hidden in a town where everyone comes
+  back — when someone doesn't, everybody counts. 1–2 erasures: disappearance rumors,
+  fear pricing, a heavy Garrick hit; nobody's sure the impossible is real. **3+: dawn
+  ambushes at the tavern.** Tobias alive = you wake in time (his tavern, his door — the
+  anchor is also the watchman). Tobias gone = they're already in the room. By
+  construction the manhunt only ever targets someone who already spent the way out:
+  **the town hunts despots, never escapees.**
+- **Proliferation is the player's fault:** recharging at the barrier is public — the
+  rumor mill carries "someone died against the wall and rose the next dawn," whoever
+  does it. The ninja learns the trick *from you*. Never supercharge, and he likely
+  never does.
+
+### Endings this adds
+
+| Ending | Trigger | Flavor |
+|---|---|---|
+| **The Stillness** | Erase Wendel. 10–20 loops later (randomized — no visible seam), the pact unwinds. | One morning nobody died at midnight. The dead stay dead now; the dungeon stops regenerating (finally, permanently conquerable); memories and bodies agree at last. **The barrier never lifts.** The game does not end, the artifact has no one waiting for it, and the GM is never told whether escape exists — the server defines none. The real ending is the morning the player decides to stop looking. |
+| **The Refusal** | Supercharged shard turned inward at the barrier. | You remove yourself from the loop. The town keeps looping without its anomaly. The deliberate-despair mirror of the deliberate despot. |
+| **The Erased** | The ninja — armed with his shard and taught by your public recharges — downs you and finishes the ritual before midnight. | The player's one true death. Telegraphed (his barrier death fires a rumor the morning after), interruptible (Tobias), preventable (disarm him first). |
