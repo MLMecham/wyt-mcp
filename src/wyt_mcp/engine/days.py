@@ -20,9 +20,16 @@ PROCLAMATION = (
 )
 
 FIRST_DAWN_MEMORY = (
-    "The first wrong dawn. The voice at midnight, the dying, and waking "
-    "to the same morning anyway."
+    "The first wrong dawn. The voice at midnight, then the barrier's fire "
+    "coming over the rooftops — burning alive — and waking to the same "
+    "morning anyway, remembering all of it."
 )
+
+# §20 canon: the only form the nightly death ever takes.
+MIDNIGHT_CANON = ("At midnight the barrier's dark fire swept the town. "
+                  "Everyone died. Everyone woke. Everyone remembers burning.")
+
+FIRST_DAWN_SANITY_HIT = 8   # the worst morning of their lives, on top of decay
 
 
 def new_game(name: str, klass: str, skip_intro: bool = False) -> dict:
@@ -67,6 +74,29 @@ def _skip_intro() -> dict:
                         "waking at the tavern."),
             "overnight": overnight,
         },
+    }
+
+
+def first_day_rescue() -> dict:
+    """§14: nobody dies on the ordinary day. Whatever drops the player on
+    loop 1, Captain Garrick gets them out — barely. The first death the
+    player experiences must be everyone's, at midnight."""
+    db.set_player(hp=1)
+    db.set_game(area="town", location="watch_house")
+    town.visit("watch_house")
+    town.add_memory("garrick",
+                    "He carried you in himself, your blood on his uniform. "
+                    "You weren't breathing right.", "witnessed", +2)
+    db.log_event("Pulled back from the brink; woke at the watch house. (loop 1)")
+    return {
+        "saved_by": "garrick",
+        "hp": 1,
+        "location": "watch_house",
+        "gm_note": ("The player does not die today. The world goes black — "
+                    "then they wake on a cot in the watch house, Captain "
+                    "Garrick nearby. He got to them in time. Barely. They are "
+                    "at 1 HP: let them talk with him, then rest or sleep. "
+                    "Do not explain why today of all days they were lucky."),
     }
 
 
@@ -138,10 +168,40 @@ def advance_loop(cause: str) -> dict:
     from wyt_mcp.engine import endings  # local import breaks the cycle
     ending = endings.check_breaking_point()
 
+    # The first wrong dawn (§14/§20): everyone remembers burning. Applied
+    # before the packet so its sanity numbers reflect the panic.
+    first_midnight = None
+    if loop == 1 and not g["intro_done"]:
+        db.set_game(intro_done=1)
+        for n in db.npcs_all():
+            town.add_memory(n["key"], FIRST_DAWN_MEMORY, "witnessed", -4, 1)
+            fresh = db.npc(n["key"])
+            db.update("npcs", fresh["id"],
+                      sanity=max(0, fresh["sanity"] - FIRST_DAWN_SANITY_HIT))
+        first_midnight = {
+            "proclamation": PROCLAMATION,
+            "gm_note": ("Narrate, in order: midnight; the voice in every head "
+                        "(the proclamation, verbatim — heard once and never "
+                        "again); then the barrier's dark fire coming over the "
+                        "rooftops and killing everyone, the player included — "
+                        "let them feel it; then waking to the same morning. "
+                        "Never explain the rules. Inflict them."),
+            "the_first_dawn": (
+                "This morning the town is in open panic — everyone remembers "
+                "burning to death hours ago. Shutters stay closed. Someone is "
+                "wailing in the square. People grab the player's arm: did you "
+                "feel it too. Nobody calls it a dream — too many of them "
+                "remember the same fire. And by midmorning, word spreads of "
+                "one more impossible thing: the dungeon mouth stands open for "
+                "the first time in twenty years, the chapel's seal split like "
+                "bark. The calm of loop 1 is GONE and never fully comes back."),
+        }
+
     # 8. The morning packet.
     p = db.player()
     packet = {
         "loop": new_loop, "cause": cause,
+        "midnight": MIDNIGHT_CANON,
         "wake": "You wake at the Last Hearth. Again.",
         "notes": notes,
         "town_avg_sanity": round(town.town_avg_sanity()),
@@ -153,17 +213,8 @@ def advance_loop(cause: str) -> dict:
     }
     if retreated:
         packet["retreated"] = True
-    if loop == 1 and not g["intro_done"]:
-        db.set_game(intro_done=1)
-        for n in db.npcs_all():
-            town.add_memory(n["key"], FIRST_DAWN_MEMORY, "witnessed", -2, 1)
-        packet["first_midnight"] = {
-            "proclamation": PROCLAMATION,
-            "gm_note": ("Narrate, in order: midnight; the voice in every head "
-                        "(the proclamation, verbatim — heard once and never "
-                        "again); the first death; waking to the same morning. "
-                        "Never explain the rules. Inflict them."),
-        }
+    if first_midnight:
+        packet["first_midnight"] = first_midnight
     if ending:
         packet["ended"] = ending
     return packet

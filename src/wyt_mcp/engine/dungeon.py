@@ -203,10 +203,30 @@ def entered_this_loop() -> bool:
 # ---------------------------------------------------------------- movement
 
 def descend(floor: int) -> dict:
-    """'You remember the way' — jump to a floor's entrance (§9)."""
+    """'You remember the way' — jump to a floor's entrance (§9).
+
+    On loop 1 the mouth is still sealed (§14/§20): chapel-key holders get
+    the dead dungeon, floor 1 only, the way down buried."""
     g = db.game()
     if g["area"] == "town" and g["location"] != "dungeon_mouth":
         return {"error": "You must be at the dungeon mouth to descend."}
+    if g["loop_count"] == 1:
+        has_key = db.conn().execute(
+            "SELECT 1 FROM inventory WHERE item_key='chapel_key'"
+        ).fetchone()
+        if not has_key:
+            return {"error": "The mouth is sealed — chapel wax over old "
+                             "iron, twenty years of it. The watch would also "
+                             "like a word about why you're touching it."}
+        if floor != 1:
+            return {"error": "There is only the first dark. The way deeper "
+                             "is buried."}
+        out = enter(floor_entrance(1)["id"])
+        out["pre_loop_dungeon"] = (
+            "This is the dead dungeon, sealed for twenty years: dust, "
+            "silence, and whatever was sealed in with it. The stairs down "
+            "are buried under old collapse. Narrate a tomb, not a gauntlet.")
+        return out
     if not 1 <= floor <= FLOORS:
         return {"error": f"There is no floor {floor}."}
     if floor > g["max_floor_cleared"] + 1:
@@ -225,6 +245,9 @@ def move(label: str) -> dict:
                 "note": "You climb back out into the grey daylight."}
     for e in edges_from(cur):
         if e["label"].lower() == label.lower():
+            if e["label"] == "down" and g["loop_count"] == 1:
+                return {"error": "The stairway down is buried under twenty "
+                                 "years of collapse."}
             return enter(e["to_room"])
     return {"error": f"No exit '{label}' from here.", "exits": exits(cur)}
 
@@ -271,8 +294,11 @@ def _spring_trap(r) -> dict:
     out = {"trap": {"name": r["name"], "damage": dmg, "hp": max(0, hp)}}
     if hp <= 0:
         from wyt_mcp.engine import days  # local import breaks the cycle
-        out["died"] = True
-        out["overnight"] = days.advance_loop("died")
+        if g["loop_count"] == 1 and not g["ended"]:
+            out["rescued"] = days.first_day_rescue()
+        else:
+            out["died"] = True
+            out["overnight"] = days.advance_loop("died")
     return out
 
 

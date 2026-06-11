@@ -463,6 +463,44 @@ def statuses_of(npc_id: int) -> list[str]:
 
 # ---------------------------------------------------------------- packets
 
+# §20: the GM may not know lore the server didn't author. Every packet says
+# exactly what this person can truthfully know about the loop. Wendel gets a
+# median line like everyone else — a missing entry would itself be a tell.
+WHAT_THEY_KNOW = {
+    "garrick": ("Twenty years ago he led men into the dungeon and came back "
+                "the only survivor of the second floor. He ordered the mouth "
+                "sealed; the chapel did it; the watch has enforced it since. "
+                "His firsthand knowledge is real and twenty years stale — the "
+                "dungeon the loop opens REARRANGES nightly, and it didn't "
+                "used to. Below his old second-floor mark he knows nothing. "
+                "He knows the name Malgor only from the proclamation; he has "
+                "checked the watch records twice by lamplight, and there is "
+                "nothing."),
+    "tobias":  ("Hears everyone's accounts over the bar, so he knows the "
+                "town's mood better than anyone. No secret lore — just a "
+                "barman's arithmetic of who is fraying and who is pretending "
+                "not to."),
+    "marta":   ("Knows her stock, her forge, and that both reset every "
+                "morning, which she does not talk about. Nothing else."),
+    "petra":   ("Knows her herbs and what the fire does to a body — she has "
+                "woken remembering it like everyone. Nothing else."),
+    "sela":    ("Knows her ovens, her flour counts, and which regulars have "
+                "stopped coming around. Nothing else."),
+    "bren":    ("Keeper of the seal: he performed the rite that closed the "
+                "dungeon mouth twenty years ago, after Garrick's men didn't "
+                "come back, and he holds the chapel key. He knows the seal "
+                "did not fail at the first midnight — it was broken FROM THE "
+                "OUTSIDE, and whatever broke it is stronger than the chapel. "
+                "Scripture has nothing for this. He knows the name Malgor "
+                "only from the proclamation. (Anything stranger he says "
+                "comes only from server-provided clue lines — never invent "
+                "prophecy for him.)"),
+    "dorrin":  ("Knows his ledgers, which stopped adding up the day the "
+                "world started repeating. Nothing else."),
+    "wendel":  ("Knows his chickens and his little shelf of charms. He knows "
+                "the name Malgor only from the proclamation, like everyone."),
+}
+
 def _forged_wizard_view(n, loop_count: int) -> dict:
     """§15: the tools lie to the narrator about Malgor until the reveal.
 
@@ -498,6 +536,9 @@ def npc_packet(npc_key: str, loop_count: int, rng: random.Random) -> dict | None
         "disposition": n["disposition"],
         "accepts_gold": bool(n["accepts_gold"]),
         "memories": memories_for(n["id"]),
+        "what_they_know": WHAT_THEY_KNOW.get(
+            n["key"], "Only what everyone knows: the proclamation, the fire, "
+                      "the resets."),
     }
     if n["is_wizard"] and not g["wizard_revealed"]:
         packet.update(_forged_wizard_view(n, loop_count))
@@ -684,6 +725,14 @@ def loot_den(den_key: str) -> list[str]:
 
 
 GARRICK_SUPPORT_TEXT = "You came by the watch house just to stand with him."
+
+# §16/§20: the game never editorializes Garrick's tragedy — his enemies do.
+# Server-authored; delivered on den raids once the valve is open.
+GARRICK_TAUNT = (
+    "'The captain?' A laugh with nothing in it. 'Don't pin this on us. That "
+    "man's been sealed shut since he came up those stairs alone, twenty "
+    "years back. We just waited for the wax to crack.'"
+)
 
 
 def support_garrick() -> dict:

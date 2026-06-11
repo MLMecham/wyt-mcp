@@ -256,7 +256,14 @@ and madness are the only things the loop preserves.**
 
 ### The loop
 
-A loop is one day. `advance_loop` runs, in order:
+A loop is one day, and **every day ends the same way: at midnight the barrier's
+dark fire sweeps the town and kills everyone — the player included.** Everyone
+burns; everyone wakes at dawn; everyone remembers burning (§20). This is the
+canonical midnight, the engine of the town's unraveling, and the same substance
+as the §19 wall — one pact, one fire. Touching the barrier early is the same
+death, just voluntary.
+
+`advance_loop` runs, in order:
 
 1. Log loop summary to `event_log`.
 2. Reset: revive `dead_this_loop` / return `missing_this_loop` NPCs, restore player HP/MP,
@@ -441,14 +448,28 @@ barter/quests beyond the fence buy-back, additional Garrick family NPCs.
 2. **The ordinary day.** Town whole, prices fair, everyone sane. The player experiences the
    baseline they'll watch decay — including the unremarkable townsman (Malgor) doing
    unremarkable things. He must be *boring*, not mysterious.
+   **Nobody dies on the ordinary day.** Any lethal outcome on loop 1 — combat, trap,
+   anything — becomes a rescue: Captain Garrick drags the player back (1 HP, a cot at the
+   watch house, talk and rest). The first death the player experiences must be everyone's,
+   at midnight. No explanation for the luck is ever given.
+   **The dungeon is sealed on the ordinary day** — chapel wax over old iron, twenty years
+   of it (§20). `descend` refuses on loop 1 unless the player holds the **chapel key**
+   (Bren keeps it; acquisition ships with the npc_reward/quest plumbing — the game's
+   first authored quest). With the key they get the **dead dungeon**: floor 1 only, dust
+   and whatever was sealed in, the way down buried under old collapse, one old cache (a
+   dead delver's locket Garrick recognizes). A tomb, not a gauntlet — preview, never
+   progression. The first midnight splits the seal, and loop 2's morning includes the
+   sight of the mouth standing open for the first time in twenty years.
 3. **Midnight — the proclamation.** A voice in every head as the nightmare begins, kept
    nearly verbatim from the original game, heard once and never again:
    > *"Foolish mortals! I am Malgor, and your time is mine to command! In the depths of the
    > dungeon lies that which I seek. You will retrieve it today… or suffer eternity within
    > my grasp!"*
-   Then the first death, and the first wrong dawn. Loop 2's NPC packets carry the first
-   memories. The rules (death resets, the town remembers, gold rots) are never explained —
-   they're inflicted.
+   Then the fire comes over the rooftops — the first death, everyone's, all at once — and
+   the first wrong dawn. **Loop 2's morning is the worst morning of their lives**: the
+   whole town remembers burning, and the packet says so (shared sanity hit, panic notes).
+   Loop 2's NPC packets carry the first memories. The rules (death resets, the town
+   remembers, gold rots) are never explained — they're inflicted.
 
 ## 15. Keeping the Twist from the Narrator
 
@@ -571,6 +592,10 @@ was offered: +1 brutality. They drop a few coins.
 - For the warrior, all of this is personal: Garrick is his **father**. Watching him fray —
   or breaking him yourself, as the captain's son, with the rumors naming you — is the
   strongest class-specific arc in the game, at zero extra build cost.
+- After the valve opens, den raids carry a server-authored **taunt**: the crew says,
+  callously, what the game itself never editorializes — that the captain has been sealed
+  shut since he came up those stairs alone twenty years ago, and they just waited for the
+  wax to crack. His tragedy is narrated by the people profiting from it.
 - Once crime maxes, no explicit "shopkeeper leaves" state: a store stripped bare every
   night is functionally dead already.
 
@@ -696,3 +721,41 @@ player decides who it applies to. Including themselves.
 | **The Stillness** | Erase Wendel. 10–20 loops later (randomized — no visible seam), the pact unwinds. | One morning nobody died at midnight. The dead stay dead now; the dungeon stops regenerating (finally, permanently conquerable); memories and bodies agree at last. **The barrier never lifts.** The game does not end, the artifact has no one waiting for it, and the GM is never told whether escape exists — the server defines none. The real ending is the morning the player decides to stop looking. |
 | **The Refusal** | Supercharged shard turned inward at the barrier. | You remove yourself from the loop. The town keeps looping without its anomaly. The deliberate-despair mirror of the deliberate despot. |
 | **The Erased** | The ninja — armed with his shard and taught by your public recharges — downs you and finishes the ritual before midnight. | The player's one true death. Telegraphed (his barrier death fires a rumor the morning after), interruptible (Tobias), preventable (disarm him first). |
+
+## 20. World Canon & NPC Knowledge
+
+Locked 2026-06-10 after run 01 (`case_study/run_01_findings.md`): the GM invented dungeon
+records, a "time-binder" taxonomy, floor counts, and a prior looper — exposing the whole
+mystery by loop 2. The fix is the §15 principle generalized: **the GM may not know lore
+the server didn't author.** Canon ships in the GM prompt; per-NPC knowledge ships in
+packets as `what_they_know`.
+
+**The canon:**
+
+- **Midnight is the fire.** At midnight the barrier's dark energy sweeps the town and
+  kills everyone — player included. Everyone burns, everyone wakes, everyone remembers
+  burning. Nightly. This is the only canonical form of the reset death.
+- **The name Malgor exists only in the proclamation.** There are no records, no
+  scholarship, no legends about him. Nobody can research him — not Garrick, not the
+  watch, not anyone. The not-knowing is the point.
+- **There were no loops before loop 1, and no prior loopers.** Nobody "already knew."
+  Nobody scratched warnings before it began.
+- **The dungeon was sealed twenty years ago**, after Captain Garrick's expedition came
+  back one man strong — him. The chapel performed the seal (Bren keeps the rite and the
+  key); the watch enforced it; nobody has been inside since. **The first midnight broke
+  the seal from the outside** — Bren knows this, and knows what it implies: whatever
+  opened it is stronger than the chapel.
+- **Garrick's dungeon knowledge is real and useless.** He reached the second floor once.
+  But the loop rebuilds the dungeon nightly — *it didn't used to rearrange* — so his maps
+  are twenty years stale and below his old mark nobody knows anything, the GM included.
+  Veteran knowledge counts for nothing down there; only loop-knowledge works.
+- **Why this town (design-side only — never enters the GM prompt):** Malgor's bargain
+  bars him from the depths (§9), and the seal barred everyone else. He has been waiting
+  behind a locked door he cannot open. The loop is his crowbar: it splits the seal every
+  midnight and breeds someone desperate enough to descend. The seal is the reason the
+  loop exists *here*.
+- **NPCs know exactly three kinds of things:** what everyone knows (the proclamation,
+  the fire, the resets), what their packet says (`what_they_know` + memories), and what
+  they personally witnessed this run. Asked beyond that, they don't know — and not
+  knowing frightens them. Bren's prophetic clue lines (§15) remain the ONLY scripted
+  exception, and the server writes those, not the GM.

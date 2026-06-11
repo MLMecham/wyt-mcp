@@ -365,7 +365,13 @@ def _finish(outcome: str, log: list[str]) -> dict:
     effects.clear_combat()
     if outcome == "died":
         from wyt_mcp.engine import days  # local import breaks the cycle
-        out["overnight"] = days.advance_loop("died")
+        g = db.game()
+        if g["loop_count"] == 1 and not g["ended"]:
+            # §14: nobody dies on the ordinary day — Garrick gets there.
+            out["outcome"] = "rescued"
+            out["rescued"] = days.first_day_rescue()
+        else:
+            out["overnight"] = days.advance_loop("died")
     p = db.player()
     out["player_hp"] = f"{p['hp']}/{p['max_hp']}"
     return out
