@@ -195,7 +195,8 @@ def ask_directions(npc_key: str, rng: random.Random) -> dict:
     n = db.npc(npc_key)
     if n is None or n["dead_this_loop"] or n["missing_this_loop"]:
         return {"error": "There is nobody to ask."}
-    if n["withdrawn"] or n["hostile"]:
+    if n["hostile"] or (n["withdrawn"]
+                        and n["disposition"] < tuning.RAPPORT_FRIEND):
         return withdrawn_refusal(n)
     if n["disposition"] < -30:
         return {"refused": True, "name": n["name"],
@@ -378,6 +379,9 @@ def decay_all(loop_count: int, rng: random.Random) -> list[str]:
             decay = max(1, decay // 2)
         if "fragile" in traits:
             decay = int(decay * 1.5)
+        if n["disposition"] >= tuning.RAPPORT_FRIEND:
+            # someone still talks to them like a person, every day
+            decay = max(0, decay - 1)
         sanity = max(0, n["sanity"] - decay)
         db.update("npcs", n["id"], sanity=sanity)
         if not n["is_wizard"]:
@@ -397,6 +401,8 @@ def _roll_gates(n, rng: random.Random) -> list[str]:
             fields.update(withdrawn=1, gate_reason="sanity collapse — gone quiet")
             notes.append(f"{n['name']} has stopped speaking to people.")
         hostile_p = 0.10 * (2 if n["disposition"] < -20 else 1)
+        if n["disposition"] > tuning.RAPPORT_GUARD:
+            hostile_p *= 0.5            # hard to turn on someone you like
         if not n["hostile"] and rng.random() < hostile_p:
             reason = ("old grudges sharpened by the loops"
                       if n["disposition"] < -20 else "sanity collapse — fear turned outward")
@@ -514,6 +520,32 @@ WHAT_THEY_KNOW = {
                 "the name Malgor only from the proclamation, like everyone."),
 }
 
+# How each NPC likes to be spoken to. Authored and stable across loops —
+# learnable, like the dungeon. The GM judges rapport hits/misses against
+# THIS, never against its own taste.
+MANNER = {
+    "garrick": ("Speak plainly and own your mistakes — report like a soldier "
+                "and he warms. Evasion, excuses and jokes about the watch "
+                "grate."),
+    "marta":   ("Banter. Direct talk, light insults given AND taken, buying "
+                "without dithering. Flattery and wasted time grate."),
+    "tobias":  ("Sit. Drink something. Let him talk about other people's "
+                "days — listening lands. Treating him like furniture grates."),
+    "petra":   ("Precision. Name the symptom, the dose, the fact. Vagueness "
+                "and haggling over remedies grate."),
+    "sela":    ("Accept the food. Eat it in front of her. Asking after the "
+                "people she worries about lands; refusing her care grates."),
+    "bren":    ("Respect without performance — 'Father', and honest doubt "
+                "spoken plainly. Mockery, bravado and empty piety grate."),
+    "wendel":  ("Patience. Few words, no hurry. He is exactly as reachable "
+                "as he looks."),
+    "dorrin":  ("Specificity. Know what you want, count correctly, respect "
+                "the ledger. Aimless browsing and rounded numbers grate."),
+    "eddar":   ("Brevity, and nothing she didn't invite. Pity grates worst "
+                "of all; uninvited questions about Tam close the door."),
+}
+
+
 def _forged_wizard_view(n, loop_count: int) -> dict:
     """§15: the tools lie to the narrator about Malgor until the reveal.
 
@@ -552,6 +584,7 @@ def npc_packet(npc_key: str, loop_count: int, rng: random.Random) -> dict | None
         "what_they_know": WHAT_THEY_KNOW.get(
             n["key"], "Only what everyone knows: the proclamation, the fire, "
                       "the resets."),
+        "manner": MANNER.get(n["key"], "Ordinary courtesy."),
     }
     if n["is_wizard"] and not g["wizard_revealed"]:
         packet.update(_forged_wizard_view(n, loop_count))
@@ -573,6 +606,11 @@ def npc_packet(npc_key: str, loop_count: int, rng: random.Random) -> dict | None
             "REVEALED: this is Malgor. The mask is off. Play him as ancient, "
             "tired, and terribly reasonable."
         )
+    if n["withdrawn"] and n["disposition"] >= tuning.RAPPORT_FRIEND:
+        packet["gm_note_door"] = (
+            "Withdrawn from everyone — but the door opens for THIS one. "
+            "Quiet, diminished, present. Play the exception like the gift "
+            "it is.")
 
     # §15: server-authored clues, injected at scripted thresholds — never inferred.
     if n["key"] == "bren" and "prophetic" in statuses_of(n["id"]):
@@ -752,6 +790,41 @@ def npc_reward(npc_key: str, gold: int, reason: str, item_key: str = "") -> dict
                "witnessed", +1)
     return {"ok": True, "from": n["name"], "gold": gold,
             "item": item_key or None, "gold_total": db.player()["gold"]}
+
+
+def rapport(npc_key: str, hit: bool, why: str) -> dict:
+    """The manner-of-speech channel: ±1 disposition, once per NPC per loop.
+    The GM judges hit/miss against the packet's `manner` field. A hit also
+    steadies the player a little — once per loop, town-wide."""
+    g = db.game()
+    got = _npc_present(npc_key)
+    if "error" in got:
+        return got
+    n = got["npc"]
+    if n["hostile"]:
+        return {"refused": True, "note": "Past words. Manner doesn't reach "
+                                         "them anymore."}
+    if n["withdrawn"] and n["disposition"] < tuning.RAPPORT_FRIEND:
+        return {"refused": True, "note": "They aren't listening."}
+    if db.conn().execute(
+            "SELECT 1 FROM event_log WHERE loop_count=? AND text LIKE ?",
+            (g["loop_count"], f"[rapport:{npc_key}]%")).fetchone():
+        return {"refused": True,
+                "note": "Words have done what words can do with them today."}
+    why = (why or "").strip()[:120]
+    delta = 1 if hit else -1
+    add_memory(npc_key,
+               f"The way they spoke to me {'landed' if hit else 'grated'}: "
+               f"{why}", "witnessed", delta)
+    db.log_event(f"[rapport:{npc_key}] {'hit' if hit else 'miss'} — {why}")
+    out = {"ok": True, "npc": n["name"], "disposition_delta": delta}
+    if hit and not db.conn().execute(
+            "SELECT 1 FROM event_log WHERE loop_count=? AND "
+            "text LIKE '[rapport-resolve]%'", (g["loop_count"],)).fetchone():
+        db.log_event("[rapport-resolve]")
+        out["player_resolve"] = player.change_resolve(
+            +1, f"spoke {n['name']}'s language")
+    return out
 
 
 def give_item(npc_key: str, item_key: str) -> dict:

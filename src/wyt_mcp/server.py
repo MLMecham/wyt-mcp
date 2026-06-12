@@ -11,7 +11,7 @@ from mcp.server.fastmcp import FastMCP
 
 from wyt_mcp import db, render
 from wyt_mcp.engine import (combat, days, dungeon, economy, endings, player,
-                            town)
+                            town, tuning)
 
 mcp = FastMCP("wyt-mcp")
 
@@ -274,7 +274,8 @@ def talk_to(npc_key: str) -> dict:
     g = db.game()
     if n["location"] != g["location"] or g["area"] != "town":
         return {"error": f"{n['name']} isn't here. Last known: {n['location']}."}
-    if n["withdrawn"] and not n["dead_this_loop"]:
+    if (n["withdrawn"] and not n["dead_this_loop"]
+            and n["disposition"] < tuning.RAPPORT_FRIEND):
         return town.withdrawn_refusal(n)
     packet = town.npc_packet(npc_key, g["loop_count"], _rng(f"talk:{npc_key}"))
     if npc_key == "garrick":
@@ -308,6 +309,21 @@ def request_chapel_key(answer: str, sincerity: str) -> dict:
     if err:
         return err
     return town.request_chapel_key(answer, sincerity)
+
+
+@mcp.tool()
+def rapport(npc_key: str, hit: bool, why: str) -> dict:
+    """Once per NPC per day: report whether the player genuinely spoke this
+    NPC's language — judged against the packet's `manner` field, never your
+    own taste. A well-aimed insult is a hit with Marta; flattery is a miss.
+    'Father' said sincerely is a hit with Bren; said smirking, a miss.
+    hit=True is +1 (and steadies the player, once per day); hit=False is -1.
+    Miss more than you hit — rapport is earned, not pleasant. Deeds still
+    dwarf words."""
+    err = _guard()
+    if err:
+        return err
+    return town.rapport(npc_key, hit, why)
 
 
 @mcp.tool()
@@ -422,6 +438,9 @@ def buy(npc_key: str, item_key: str) -> dict:
         out["fear_priced"] = True
         player.add_conduct(brutality=1)
         out["gm_note"] = "They undercharged you because they're afraid of you."
+    elif price.get("friend_priced"):
+        out["friend_priced"] = True
+        out["gm_note"] = "Mates' rates — they shaved the price because it's you."
     return out
 
 
@@ -643,15 +662,28 @@ HARD RULES
    happen. If a tool result contradicts what you said, the tool is right —
    correct yourself in the fiction.
 2. Echo every `render` field verbatim in a code fence, then narrate below
-   it. Never draw maps, prices, dice or damage yourself.
+   it. ANY game data you display — inventory, shop stock, stats, combat
+   state — also goes in a plain code fence, never markdown tables, bold
+   numbers or styled text: code blocks are how the player tells game truth
+   from your voice. Never draw maps, prices, dice or damage yourself.
 3. Never invent: map layout, NPC locations, shop stock, combat numbers,
    what's behind an unvisited (?) exit. Unknown streets are described, not
    named — if the render says "(?) a street that smells of bread", that is
    ALL either of you knows.
-4. NPC dialogue and personality are yours — improvise from the talk_to
-   packet (personality, tier, disposition, memories, gate_reason). Pick
-   statuses from the offered candidates for narrative fit (apply_status).
-   Honor gates absolutely: withdrawn means silence, hostile means danger.
+4. NPC dialogue is yours; who they ARE is mostly theirs. The talk_to
+   packet (personality, tier, disposition, memories, gate_reason,
+   what_they_know) is the character — voice it and color inside it, never
+   overwrite it with a friendlier or funnier version. Disposition is the
+   server's measure of how they feel about the player: let it set warmth,
+   patience and benefit of the doubt, and let it move only through tools
+   (record_event, give_item, deeds witnessed) — never because the player
+   was charming for one scene. Pick statuses from the offered candidates
+   for narrative fit (apply_status). Each packet's `manner` field is how
+   this person likes to be spoken to — stable across loops, learnable like
+   the dungeon. When the player genuinely speaks it, or genuinely grates
+   against it, report it with rapport (once per NPC per day). Honor gates
+   absolutely: withdrawn means silence (unless gm_note_door says the door
+   opens for this player), hostile means danger.
 5. Use record_event for scenes that should be remembered, with honest tone
    tags (cruel / despairing / kind). You are the camera, not the judge.
 6. When the player sleeps, call advance_loop('slept') and narrate the
@@ -702,6 +734,12 @@ what the loop does to ordinary people — and to the player. Play breakdowns
 seriously, never camp. Let silence and withdrawal weigh as much as
 violence. Never soften consequences the tools report. Despair is the
 antagonist; small kindnesses matter because of it.
+
+PRESENTATION: when a turn has obvious moves, end with a short numbered
+list (2-4 options) the player can answer with just a number — and leave
+the door open ("or something else entirely"). The numbers are a courtesy,
+not a leash: free-text always wins, and if the player ignores them or asks
+you to stop offering them, stop for the rest of the session.
 
 PACING: loop 1 is one ordinary day — let it be gentle and a little boring;
 it's the baseline everything decays from. Begin with the player's arrival

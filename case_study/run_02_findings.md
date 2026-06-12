@@ -69,6 +69,25 @@ create_save looked up dispositions by class key, so "mitch" got 0 across
 the board and the GM improvised the warmth run-02 showed. Debug variants
 now carry `disposition_as` → base class standing.
 
+### F14 — Manner & rapport system — BUILT (post-run-02)
+Run-02's "sup loesr" landing as charm was GM dice, not character. Built:
+- `MANNER` dict (town.py, served in every talk_to packet): how each of the
+  9 NPCs likes to be spoken to. Authored, stable across loops — social
+  knowledge is loop knowledge, learnable like the dungeon. Marta takes
+  banter and light insults; Bren takes "Father" and honest doubt; Eddar
+  takes brevity and nothing she didn't invite; pity grates worst.
+- `rapport` tool: ±1 disposition, once per NPC per loop (event_log marker),
+  judged against manner, never GM taste. A hit also gives +1 player resolve,
+  once per loop town-wide. Prompt: "miss more than you hit."
+- Effects wired into existing systems: disposition ≥40 → −1 nightly decay
+  (befriending someone literally slows their unraveling) AND a withdrawn
+  NPC still opens the door for the player (gm_note_door; talk_to and
+  ask_directions bypass); >20 halves hostile flips on sanity collapse;
+  ≥30 → friend pricing (×0.9 at their own counter, mirror of fear pricing,
+  never both). Knobs in tuning.py (RAPPORT_FRIEND/GUARD, FRIEND_PRICE_*).
+- GM prompt: rule 4 rewritten ("dialogue is yours; who they ARE is mostly
+  theirs"), code-fence rule for all game data, numbered-options default.
+
 ### Still queued (priority order)
 1. F6 — diegetic reveal terms ("kept or taken, never given")
 2. F7 — 2D coordinate town map + verbatim hardening (GM redrew status bars

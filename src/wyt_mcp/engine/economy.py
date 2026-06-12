@@ -11,14 +11,20 @@ def gold_multiplier(loop_count: int) -> float:
 
 
 def price_for(base_price: int, npc) -> dict:
-    """Returns {'price': int, 'fear_priced': bool}."""
+    """Returns {'price': int, 'fear_priced': bool, 'friend_priced': bool}.
+    Prices are a tell: fear undercuts, friendship shaves. Never both."""
     g = db.game()
     mult = gold_multiplier(g["loop_count"])
     mult *= 1.5 - npc["sanity"] / 200.0          # saner merchant, saner prices
     fear = npc["sanity"] < 40 and npc["disposition"] < -40
+    friend = (not fear
+              and npc["disposition"] >= tuning.FRIEND_PRICE_DISPOSITION)
     if fear:
         mult *= 0.5                               # they're afraid to say no to you
-    return {"price": max(1, int(base_price * mult)), "fear_priced": fear}
+    elif friend:
+        mult *= tuning.FRIEND_PRICE_RATE          # mates' rates, because it's you
+    return {"price": max(1, int(base_price * mult)),
+            "fear_priced": fear, "friend_priced": friend}
 
 
 SELL_RATE = tuning.SELL_RATE

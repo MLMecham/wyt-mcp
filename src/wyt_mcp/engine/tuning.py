@@ -24,6 +24,13 @@ GARRICK_WARNING_SUPPORT = 6 # same act on the warning day — he needed someone
 GARRICK_DEN_WIN = 2         # per den-crew fight won: the watch isn't alone
 GARRICK_MURDER_WEIGHT = -10 # a shopkeeper murdered in his town
 
+# --- rapport (manner of speech) ----------------------------------------------
+RAPPORT_FRIEND = 40         # disposition at/above: -1 nightly decay, and a
+                            # withdrawn NPC still opens the door for the player
+RAPPORT_GUARD = 20          # above this, hostile flips on collapse are halved
+FRIEND_PRICE_DISPOSITION = 30   # at/above: mates' rates at their own counter
+FRIEND_PRICE_RATE = 0.9
+
 # --- risk tiles -------------------------------------------------------------
 FLAT_RISK = 0.15            # dens: always was rough, stays rough
 SCALING_CAP = 0.35          # alleys/park ceiling
