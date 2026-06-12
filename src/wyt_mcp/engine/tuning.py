@@ -32,6 +32,8 @@ SCALING_GRACE_LOOPS = 3
 
 # --- economy ----------------------------------------------------------------
 GOLD_ROT_PER_LOOP = 0.15    # price multiplier growth per loop
+REWARD_GOLD_BASE = 12       # npc_reward cap = base + per_loop x loop
+REWARD_GOLD_PER_LOOP = 3    # (loop 1 = 15g: Sela's number for the errand)
 SELL_RATE = 0.5             # matching shop pays half an item's current price
 WRONG_SHOP_RATE = 0.25      # the wrong counter pays a quarter
 FENCE_MARKUP = 2.5          # buying your town's goods back from a den

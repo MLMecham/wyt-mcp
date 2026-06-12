@@ -128,6 +128,25 @@
     }
   },
   {
+    "key": "eddar",
+    "name": "Eddar",
+    "role": "recluse; mends clothes for Crooked Lane",
+    "location": "alley_2",
+    "personality": "Tam Eddar's sister, and the only one left to carry the name. Twenty years a recluse since her brother went under the hill with Garrick's expedition and didn't come back — no body, nothing to bury. Grief settled into her long ago, like furniture. Opens her door four inches. Sela sends bread; the captain looks in on her; none of them have ever once discussed why.",
+    "base_decay": 1,
+    "traits": [
+      "resilient"
+    ],
+    "shop": false,
+    "combat_tier": "weak",
+    "dispositions": {
+      "warrior": 10,
+      "mage": 0,
+      "archer": 5,
+      "ninja": 0
+    }
+  },
+  {
     "key": "dorrin",
     "name": "Dorrin",
     "role": "general trader",

@@ -475,7 +475,11 @@ WHAT_THEY_KNOW = {
                 "nightly, and it didn't used to. Below his old second-floor "
                 "mark he knows nothing. He knows the name Malgor only from "
                 "the proclamation; he has checked the watch records twice "
-                "by lamplight, and there is nothing."),
+                "by lamplight, and there is nothing. Of the eight he lost, "
+                "the youngest was Tam Eddar, nineteen. Tam's sister still "
+                "keeps a room off Crooked Lane; Garrick has quietly looked "
+                "out for her for twenty years, and neither of them has ever "
+                "said why out loud."),
     "tobias":  ("Hears everyone's accounts over the bar, so he knows the "
                 "town's mood better than anyone. No secret lore — just a "
                 "barman's arithmetic of who is fraying and who is pretending "
@@ -485,7 +489,15 @@ WHAT_THEY_KNOW = {
     "petra":   ("Knows her herbs and what the fire does to a body — she has "
                 "woken remembering it like everyone. Nothing else."),
     "sela":    ("Knows her ovens, her flour counts, and which regulars have "
-                "stopped coming around. Nothing else."),
+                "stopped coming around. Worries daily about Eddar, the "
+                "recluse off Crooked Lane who doesn't always come for her "
+                "bread. Nothing else."),
+    "eddar":   ("Her brother Tam went under the hill with Garrick's "
+                "expedition twenty years ago and never came back — no body, "
+                "nothing to bury. Garrick has looked in on her ever since "
+                "and neither of them has ever said why out loud. She knows "
+                "her own four walls, her needlework, and Sela's bread. "
+                "Nothing else."),
     "bren":    ("Keeper of the inner seal: he performed the rite that closed "
                 "the way down twenty years ago, after Garrick's men didn't "
                 "come back, and he holds its key. He did NOT know anything "
@@ -577,7 +589,42 @@ def npc_packet(npc_key: str, loop_count: int, rng: random.Random) -> dict | None
             )
         if clues:
             packet["gm_clue_lines"] = clues
+
+    # Sela's authored errand (§14): the daily worry. Repeatable by design —
+    # bread resets every morning and so does the worrying.
+    if n["key"] == "sela":
+        e = db.npc("eddar")
+        if e is not None and not e["dead_this_loop"] and not e["missing_this_loop"]:
+            packet["quest"] = {
+                "text": ("Eddar — the recluse off Crooked Lane — hasn't come "
+                         "for her bread. Sela worries the same worry every "
+                         "day: take a loaf down, make sure she's breathing, "
+                         "come back and say so."),
+                "reward_note": ("If the player actually goes and comes back "
+                                "with word, pay them via npc_reward — 15 gold "
+                                "is Sela's number. Never narrate payment "
+                                "without the tool."),
+            }
+    if n["key"] == "garrick" and _player_has("delvers_locket"):
+        packet["locket_note"] = (
+            "If shown the locket, he rubs the grime from the engraving with "
+            "his thumb. 'Eddar. Tam Eddar. He was nineteen.' The youngest of "
+            "his eight. 'His sister still keeps a room off Crooked Lane. I "
+            "look in on her when I can. She should have it — but think hard "
+            "before you tell her where her brother has been lying for twenty "
+            "years.'")
+    if n["key"] == "eddar" and _player_has("delvers_locket"):
+        packet["gm_note"] = (
+            "The player is carrying her brother's locket. If they hand it "
+            "over, call give_item — the server owns what follows; do not "
+            "pre-narrate her reaction.")
     return packet
+
+
+def _player_has(item_key: str) -> bool:
+    return db.conn().execute(
+        "SELECT 1 FROM inventory WHERE item_key=?", (item_key,)
+    ).fetchone() is not None
 
 
 def withdrawn_refusal(n) -> dict:
@@ -637,6 +684,118 @@ def request_chapel_key(answer: str, sincerity: str) -> dict:
             "gm_note": ("Bren closes his hand around the key. 'No.' He does "
                         "not explain and he does not argue. He will remember "
                         "what they said, word for word, for a very long time.")}
+
+
+# ---------------------------------------------------------------- rewards & gifts (F5)
+
+def _npc_present(npc_key: str) -> dict:
+    """Shared gate: the NPC exists, is here, and is in a state to interact."""
+    g = db.game()
+    n = db.npc(npc_key)
+    if n is None:
+        return {"error": f"No one called '{npc_key}'."}
+    if g["area"] != "town" or n["location"] != g["location"]:
+        return {"error": f"{n['name']} isn't here."}
+    if n["dead_this_loop"] or n["missing_this_loop"]:
+        return {"error": f"{n['name']} is not available today."}
+    return {"npc": n}
+
+
+def reward_cap(loop_count: int) -> int:
+    return tuning.REWARD_GOLD_BASE + tuning.REWARD_GOLD_PER_LOOP * loop_count
+
+
+def npc_reward(npc_key: str, gold: int, reason: str, item_key: str = "") -> dict:
+    """The ONLY channel for NPC-given gold/items. Loop-scaled cap, one
+    reward per NPC per loop, disposition-gated. A refusal here is canon:
+    the NPC genuinely cannot pay."""
+    g = db.game()
+    got = _npc_present(npc_key)
+    if "error" in got:
+        return got
+    n = got["npc"]
+    if n["withdrawn"] or n["hostile"]:
+        return {"refused": True, "note": f"{n['name']} has nothing to give "
+                                         "anyone right now."}
+    if n["disposition"] <= -10:
+        return {"refused": True,
+                "note": "They owe this player nothing, and they know it."}
+    if db.conn().execute(
+            "SELECT 1 FROM event_log WHERE loop_count=? AND text LIKE ?",
+            (g["loop_count"], f"[reward:{npc_key}]%")).fetchone():
+        return {"refused": True,
+                "note": f"{n['name']} has already paid out today. Pockets "
+                        "in this town are not bottomless."}
+    cap = reward_cap(g["loop_count"])
+    value = max(0, gold)
+    item_name = None
+    if item_key:
+        item = player.item_index().get(item_key)
+        if item is None:
+            return {"error": f"'{item_key}' is not a real item."}
+        item_name = item["name"]
+        value += item.get("price", 0)
+    if value <= 0:
+        return {"error": "A reward needs gold, an item, or both."}
+    if value > cap:
+        return {"refused": True, "cap": cap,
+                "note": (f"Too generous for this town on this day — the cap "
+                         f"is {cap}g of total value. They give what they can "
+                         "or they apologize.")}
+    if gold > 0:
+        db.set_player(gold=db.player()["gold"] + gold)
+    if item_key:
+        player.add_item(item_key)
+    db.log_event(f"[reward:{npc_key}] {n['name']} gave "
+                 f"{gold}g{' + ' + item_name if item_name else ''} — {reason}")
+    add_memory(npc_key, f"I paid them fair, and they'd earned it: {reason}",
+               "witnessed", +1)
+    return {"ok": True, "from": n["name"], "gold": gold,
+            "item": item_key or None, "gold_total": db.player()["gold"]}
+
+
+def give_item(npc_key: str, item_key: str) -> dict:
+    """The player hands an item to an NPC, for keeps. Memories persist
+    across loops; the item does not come back."""
+    got = _npc_present(npc_key)
+    if "error" in got:
+        return got
+    n = got["npc"]
+    if n["hostile"]:
+        return {"refused": True, "note": f"{n['name']} wants nothing from "
+                                         "this player's hands."}
+    if item_key == "chapel_key":
+        return {"refused": True,
+                "note": "Bren trusted it to THEIR hands. It stays there."}
+    idx = player.item_index()
+    name = idx.get(item_key, {}).get("name", item_key)
+    if not player.remove_item(item_key):
+        return {"error": "You don't have that (or it's equipped)."}
+
+    if npc_key == "eddar" and item_key == "delvers_locket":
+        # The locket comes home. Memories survive the loop; this is forever.
+        add_memory("eddar",
+                   "They brought Tam's locket home. Twenty years under the "
+                   "hill, and a stranger carried it back up to my door.",
+                   "witnessed", +12)
+        add_memory("garrick",
+                   "They found Tam Eddar's locket in the deep and carried "
+                   "it to his sister instead of selling it.", "rumor", +6)
+        player.change_resolve(+4, "the locket came home")
+        db.log_event("Tam Eddar's locket came home to his sister.", "kind")
+        return {"ok": True, "given": name, "to": n["name"],
+                "gm_note": (
+                    "She goes very still. Thumb over the engraving — the "
+                    "same gesture her captain makes, and she will never know "
+                    "it. She does not ask how they found it, and she does "
+                    "not cry in front of them. At the four-inch gap in the "
+                    "door: 'He was going to buy this house a real door.' "
+                    "That is all. The door closes gently. She remembers "
+                    "this past every midnight there will ever be.")}
+
+    add_memory(npc_key, f"They gave me {name}. No reason. People don't do "
+                        "that anymore.", "witnessed", +2)
+    return {"ok": True, "given": name, "to": n["name"]}
 
 
 # ---------------------------------------------------------------- the crime machine (§16)

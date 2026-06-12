@@ -33,6 +33,7 @@ FIRST_DAWN_SANITY_HIT = 8   # the worst morning of their lives, on top of decay
 
 
 def new_game(name: str, klass: str, skip_intro: bool = False) -> dict:
+    klass = klass.strip().lower()
     if klass not in player.CLASSES:
         return {"error": f"No such class: '{klass}'. "
                          "Choose warrior, mage, archer or ninja."}

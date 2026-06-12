@@ -56,6 +56,25 @@ CLASSES = {
 }
 
 
+def _debug_variant(spec: dict) -> dict:
+    v = {**spec, "debug": True}
+    for s in ("str", "def", "spd", "mag"):
+        v[s] = spec[s] + 10
+    v["hp"] = spec["hp"] * 2
+    v["mp"] = spec["mp"] + 10
+    v["gold"] = spec["gold"] + 200
+    return v
+
+
+# Debug classes: each real class with pumped combat stats, for playtests and
+# anyone who knows the secret. Backstory/local/abilities inherit from the base
+# class so the narrative canon holds. Never listed to players — the GM prompt
+# and new_game docstring name only the four real classes; you have to type it.
+CLASSES.update({f"mitch_{k}": {**_debug_variant(v), "disposition_as": k}
+                for k, v in CLASSES.items()})
+CLASSES["mitch"] = CLASSES["mitch_warrior"]  # shorthand: mitch = test warrior
+
+
 def gear_index() -> dict:
     return {g["key"]: g for g in db.load_data("gear")}
 

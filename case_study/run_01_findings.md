@@ -86,9 +86,22 @@ rule. Map render stays free; the town-map *item* stays the name-reveal.
 GM improvised it well (death + reset) but it cost nothing (resolve stayed
 100). Evidence the barrier should be implemented earlier than planned.
 
-### F9 — Desktop permission prompts
-Per-tool confirmations broke flow (one `buy` got blocked). Client-side only:
-choose "Always allow" per tool when prompted.
+### F9 — Desktop permission prompts — FIXED (2026-06-11, pre-run-02)
+Per-tool confirmations broke flow (one `buy` got blocked), and the dialog
+names the tool — `claim_artifact` appearing mid-scene is a spoiler even on
+"Always allow." **Built: permissions warm-up.** `warmup_begin`/`warmup_end`
+tools set a server-side flag; while on, every tool returns a no-op
+acknowledgment without touching state (explicit flag, NOT "no save exists" —
+a replay save must survive a warm-up sweep). GM prompt SETUP block has the
+GM sweep all tools with dummy args before the fiction starts, framed as
+"setting up the table."
+
+### F10 — "Loop 1" leaked on day 1 (found run-02 setup) — FIXED
+status_bar printed "Loop 1 · ... Gold (worth less every day)" on the one day
+the player must not know loops exist. Fixed: loop-1 bar shows plain
+HP/MP/Resolve/Gold; full bar returns loop 2+. GM prompt DAY 1 SECRECY block:
+the word "loop" doesn't exist in narration, labels, or visible reasoning
+until the first midnight.
 
 ## Agreed priority (post-run-01)
 

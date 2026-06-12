@@ -16,9 +16,15 @@ ROOM_MARKS = {"boss": " ☠", "artifact": " ✦"}
 
 def status_bar() -> str:
     g, p = db.game(), db.player()
-    bar = (f"Loop {g['loop_count']} · HP {p['hp']}/{p['max_hp']} · "
-           f"MP {p['mp']}/{p['max_mp']} · Resolve {p['resolve']} · "
-           f"Gold {p['gold']} (worth less every day)")
+    if g["loop_count"] <= 1:
+        # Day 1: the player doesn't know the word "loop" yet, and gold
+        # hasn't started rotting. An ordinary adventurer's status line.
+        bar = (f"HP {p['hp']}/{p['max_hp']} · MP {p['mp']}/{p['max_mp']} · "
+               f"Resolve {p['resolve']} · Gold {p['gold']}")
+    else:
+        bar = (f"Loop {g['loop_count']} · HP {p['hp']}/{p['max_hp']} · "
+               f"MP {p['mp']}/{p['max_mp']} · Resolve {p['resolve']} · "
+               f"Gold {p['gold']} (worth less every day)")
     if p["stat_points"]:
         bar += f" · {p['stat_points']} stat point(s) to spend"
     return bar

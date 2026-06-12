@@ -345,7 +345,8 @@ def enter(room_id: int) -> dict:
             out["treasure"] = {
                 "item": "delvers_locket", "gold": 12,
                 "note": ("A dead delver's locket, twenty years in the dust. "
-                         "Garrick will know whose it was."),
+                         "The engraving on the back reads EDDAR. Garrick "
+                         "will know who that was."),
             }
         else:
             out.update(_open_cache(r))

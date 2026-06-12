@@ -321,7 +321,9 @@ def create_save(name: str, klass: str, class_template: dict, seed: int) -> None:
                 n["base_decay"], ",".join(n.get("traits", [])),
                 1 if n.get("shop") else 0, n.get("combat_tier", "weak"),
                 1 if n.get("is_wizard") else 0,
-                n.get("dispositions", {}).get(klass, 0),
+                # Debug classes inherit their base class's standing in town.
+                n.get("dispositions", {}).get(
+                    class_template.get("disposition_as", klass), 0),
             ),
         )
     c.commit()

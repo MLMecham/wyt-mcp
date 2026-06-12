@@ -21,8 +21,26 @@ def _rng(tag: str) -> random.Random:
     return random.Random(f"{g['dungeon_seed']}:{g['loop_count']}:{tag}")
 
 
+# Permissions warm-up (F9): Desktop pops a permission dialog the first time
+# each tool is called, and the dialog names the tool — mid-game that breaks
+# flow and can spoil (claim_artifact, request_chapel_key...). While the flag
+# is on, every tool returns immediately without touching state, so the GM can
+# sweep all the prompts at table-setting time.
+_WARMUP = {"on": False}
+
+
+def _warming() -> dict | None:
+    if _WARMUP["on"]:
+        return {"warmup": True,
+                "note": "Permissions warm-up — no action taken."}
+    return None
+
+
 def _guard() -> dict | None:
     """Most town verbs are illegal mid-fight or post-ending."""
+    w = _warming()
+    if w:
+        return w
     if not db.has_save():
         return {"error": "No save. Call new_game first."}
     g = db.game()
@@ -47,10 +65,33 @@ def _check_wizard(out: dict) -> dict:
 # ---------------------------------------------------------------- lifecycle
 
 @mcp.tool()
+def warmup_begin() -> dict:
+    """Start the permissions warm-up. Call FIRST at session start, then call
+    every other wyt tool once with dummy arguments — each returns a no-op
+    acknowledgment while the client collects its permission approvals — then
+    warmup_end. No game state is read or written during warm-up."""
+    _WARMUP["on"] = True
+    return {"warmup": True, "note": "Warm-up on. Call every tool once "
+                                    "(dummy args are fine), then warmup_end."}
+
+
+@mcp.tool()
+def warmup_end() -> dict:
+    """End the permissions warm-up. Tools act for real again after this."""
+    _WARMUP["on"] = False
+    return {"warmup": False, "note": "Warm-up over. The table is set."}
+
+
+@mcp.tool()
 def new_game(name: str, player_class: str, skip_intro: bool = False) -> dict:
     """Start a fresh save. player_class: warrior | mage | archer | ninja —
     each carries a backstory that seeds how the town receives you.
+    If the player names a class not on this list, pass it through verbatim —
+    the engine decides whether it exists.
     skip_intro=True (replays only) starts at loop 2 with a recap."""
+    w = _warming()
+    if w:
+        return w
     out = days.new_game(name, player_class, skip_intro)
     if "error" not in out:
         out["render"] = render.town_map()
@@ -61,6 +102,9 @@ def new_game(name: str, player_class: str, skip_intro: bool = False) -> dict:
 def get_state() -> dict:
     """Full rehydration packet — call at session start; chat history is
     never load-bearing."""
+    w = _warming()
+    if w:
+        return w
     if not db.has_save():
         return {"error": "No save. Call new_game first."}
     g, p = db.game(), db.player()
@@ -85,6 +129,9 @@ def get_state() -> dict:
 def recap() -> dict:
     """'Previously on' — last loop's events, open wounds, who hates you now.
     For resuming in a fresh chat."""
+    w = _warming()
+    if w:
+        return w
     if not db.has_save():
         return {"error": "No save. Call new_game first."}
     g = db.game()
@@ -122,6 +169,9 @@ def advance_loop(cause: str = "slept") -> dict:
 @mcp.tool()
 def look() -> dict:
     """Server-rendered map + status + legal exits. Always safe to resync."""
+    w = _warming()
+    if w:
+        return w
     if not db.has_save():
         return {"error": "No save. Call new_game first."}
     g = db.game()
@@ -258,6 +308,30 @@ def request_chapel_key(answer: str, sincerity: str) -> dict:
     if err:
         return err
     return town.request_chapel_key(answer, sincerity)
+
+
+@mcp.tool()
+def npc_reward(npc_key: str, gold: int, reason: str, item_key: str = "") -> dict:
+    """An NPC pays or gifts the player — the ONLY way gold or items ever
+    pass from an NPC. The server caps total value (loop-scaled) and allows
+    one reward per NPC per day. If this refuses, that is canon: the NPC
+    genuinely cannot pay — narrate the inability (an IOU, an apology, a
+    promise they can't keep). Never narrate payment without this tool."""
+    err = _guard()
+    if err:
+        return err
+    return town.npc_reward(npc_key, gold, reason, item_key)
+
+
+@mcp.tool()
+def give_item(npc_key: str, item_key: str) -> dict:
+    """The player hands an NPC an item, for keeps. They remember — and
+    memories survive midnight. The server owns any authored reaction in
+    gm_note; narrate from it, never past it."""
+    err = _guard()
+    if err:
+        return err
+    return town.give_item(npc_key, item_key)
 
 
 @mcp.tool()
@@ -416,6 +490,9 @@ def attack(target: str, mode: str = "auto") -> dict:
     """Start a fight. target: an npc key, or 'den_keeper' at a den to raid
     it. mode='auto' fast-forwards trash; dangerous foes refuse auto and
     demand round-by-round (combat_action)."""
+    w = _warming()
+    if w:
+        return w
     if not db.has_save():
         return {"error": "No save. Call new_game first."}
     g = db.game()
@@ -444,6 +521,9 @@ def attack(target: str, mode: str = "auto") -> dict:
 def combat_action(action: str, arg: str = "") -> dict:
     """One round: strike | ability <name> | use_item <item> | defend | flee.
     The server resolves your action and the enemy's answer."""
+    w = _warming()
+    if w:
+        return w
     if combat.active() is None:
         return {"error": "No fight is happening."}
     out = combat.round_action(action, arg or None)
@@ -510,6 +590,9 @@ def rest() -> dict:
 def take_artifact() -> dict:
     """Only works standing in the artifact chamber. This is the endgame
     trigger — narrate what the packet says, nothing more."""
+    w = _warming()
+    if w:
+        return w
     if not db.has_save():
         return {"error": "No save. Call new_game first."}
     g = db.game()
@@ -524,6 +607,9 @@ def take_artifact() -> dict:
 @mcp.tool()
 def claim_artifact() -> dict:
     """At the reveal: keep it for yourself instead. The loop changes hands."""
+    w = _warming()
+    if w:
+        return w
     g = db.game()
     if not g["has_artifact"] or not g["wizard_revealed"]:
         return {"error": "There is nothing to claim yet."}
@@ -539,6 +625,15 @@ def start_game() -> str:
 time-loop tragedy. A wizard's proclamation traps a town in a repeating day;
 bodies reset at midnight, memories do not. You narrate; the wyt-mcp tools
 are the only truth.
+
+SETUP (before a single word of fiction): the client asks the player to
+approve each tool the first time it is used, and the approval dialog shows
+the tool's name — mid-game that interrupts scenes and can spoil what's
+coming. So sweep every prompt now: tell the player, out of character,
+"Setting up the table — approve each permission as it appears (Always allow
+is easiest)." Then call warmup_begin, then EVERY other wyt tool once with
+dummy arguments (each returns a no-op acknowledgment; nothing happens to
+any save), then warmup_end. Only then begin the fiction.
 
 HARD RULES
 0. Every game action goes through the wyt tools. If you do not see them,
@@ -595,9 +690,12 @@ WORLD CANON (you may not know lore the server didn't give you):
   what they witnessed this run. Asked beyond that, they don't know — and not
   knowing frightens them. Bren's server-provided clue lines are the single
   exception; never write prophecy for him yourself.
-- Never grant gold, items, healing or rewards outside tools. If you can't
-  grant it with a tool, the NPC can't give it — narrate the inability instead
-  (an IOU, an apology, a promise they can't keep).
+- Never grant gold, items, healing or rewards outside tools. NPC payments
+  and gifts go through npc_reward (server-capped, once per NPC per day);
+  player gifts to NPCs go through give_item. If npc_reward refuses, the NPC
+  truly can't pay — narrate the inability instead (an IOU, an apology, a
+  promise they can't keep). Inventing quests from NPC packets is encouraged;
+  inventing their rewards is forbidden.
 
 TONE (non-negotiable): dark, psychological, accumulative. The horror is
 what the loop does to ordinary people — and to the player. Play breakdowns
@@ -608,7 +706,13 @@ antagonist; small kindnesses matter because of it.
 PACING: loop 1 is one ordinary day — let it be gentle and a little boring;
 it's the baseline everything decays from. Begin with the player's arrival
 at the town gate at dawn. Ask their name and class (warrior / mage /
-archer / ninja) in the fiction, then call new_game."""
+archer / ninja) in the fiction, then call new_game.
+
+DAY 1 SECRECY: until the first midnight has happened, the word "loop" does
+not exist — not in your narration, not in headers or labels, not in your
+visible reasoning. The tools' packets say loop 1 because the server counts;
+the player must not see that word or any hint of repetition, resets, or
+"day 1 of many." It is simply a day. The renders already hide it."""
 
 
 def main() -> None:
