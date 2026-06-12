@@ -71,11 +71,14 @@ def take_artifact() -> dict:
                       "out. Unhurried. Terribly reasonable. He has watched "
                       "every loop from inside it, waiting for someone "
                       "desperate enough to descend."),
-            "gm_note": ("Play the reveal cold, not theatrical. The player's "
-                        "options: refuse and fight him (attack wendel — the "
-                        "fight is real now), or keep the artifact for "
-                        "themselves (claim_artifact). Handing it over is not "
-                        "in v1 — he gets nothing without taking it."),
+            "gm_note": ("Play the reveal cold, not theatrical. Three doors, "
+                        "all real, all the player's to open with full "
+                        "consent: fight him (attack wendel — the fight is "
+                        "real now), keep it (claim_artifact), or place it in "
+                        "his waiting hand (give_artifact). NEVER map an "
+                        "ambiguous line onto a door — if you are not certain "
+                        "which they chose, ask, in the fiction. He can wait. "
+                        "He is good at it."),
         },
     }
     if killed_today:
@@ -125,6 +128,53 @@ def claim_artifact() -> dict:
                     "The loop doesn't break; it changes hands."),
         "epilogue": epilogue(),
     }
+
+
+def long_game(via: str = "given") -> dict:
+    """THE LONG GAME (§21): Malgor gets the artifact — placed in his hand,
+    or taken off the player's corpse. He does not gloat and does not
+    explain; the timing of the fire is the only answer the world gives."""
+    _end("long_game")
+    db.set_game(has_artifact=0)
+    wendel = db.npc("wendel")
+    befriended = (wendel is not None
+                  and wendel["disposition"] >= tuning.RAPPORT_FRIEND)
+    if via == "taken":
+        how = ("The fight ends with the player down. He kneels — unhurried — "
+               "and takes it off them the way a man retrieves his own coat. "
+               "They die at his feet. They wake at dawn as always, the "
+               "artifact gone — and the town wakes wrong around them: last "
+               "night, while they were dead, the fire came before the stars. "
+               "Someone tells them. Or no one does.")
+    else:
+        how = ("He takes it with both hands, the way you take back something "
+               "that was always yours. He does not gloat, he does not "
+               "explain, and he says nothing worth remembering — that would "
+               "be giving the player something. He walks down the road and "
+               "through the barrier like a door only he ever had. Narrate "
+               "the rest of the day ordinary. Then, at DUSK — light still in "
+               "the sky, hours early — the fire comes. Everyone burns. The "
+               "player too. They wake at dawn, like every morning.")
+    packet = {
+        "ending": "long_game",
+        "gm_note": (
+            "THE LONG GAME. " + how + " The game is over; they are not. "
+            "Close on the epilogue. Hard rules for this ending: he was never "
+            "waiting for them — he was waiting for MORE, and you never say "
+            "so. Never explain what it was, what it opens, why the fire "
+            "moved, or what happens next. The broken schedule is the only "
+            "answer the world gives. No Wendel at the stall, nothing at the "
+            "bottom of the dungeon, every dawn still coming."),
+        "epilogue": epilogue(),
+    }
+    if befriended:
+        packet["one_human_thing"] = (
+            "All those mornings at his stall counted for something even he "
+            "did not expect. Before he goes, he pauses — once — and says: "
+            "'The counting was the only thing I ever did that wasn't "
+            "waiting.' It changes nothing. He leaves anyway. It is the only "
+            "true thing he ever gave away for free.")
+    return packet
 
 
 def class_ending_check() -> dict | None:

@@ -635,6 +635,23 @@ def claim_artifact() -> dict:
     return endings.claim_artifact()
 
 
+@mcp.tool()
+def give_artifact() -> dict:
+    """At the reveal: place it in his waiting hand. He has waited a very
+    long time for exactly this. Requires the player's explicit, unmistakable
+    choice — never infer it from an ambiguous line; if unsure, ask, in the
+    fiction. This ends the game."""
+    w = _warming()
+    if w:
+        return w
+    g = db.game()
+    if not g["has_artifact"] or not g["wizard_revealed"]:
+        return {"error": "There is no one to give it to yet."}
+    if g["ended"]:
+        return {"error": "The game has ended.", "ending": g["ending_key"]}
+    return endings.long_game("given")
+
+
 # ---------------------------------------------------------------- GM prompt
 
 @mcp.prompt()

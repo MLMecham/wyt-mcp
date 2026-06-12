@@ -364,9 +364,14 @@ def _finish(outcome: str, log: list[str]) -> dict:
     db.conn().commit()
     effects.clear_combat()
     if outcome == "died":
-        from wyt_mcp.engine import days  # local import breaks the cycle
+        from wyt_mcp.engine import days, endings  # local: breaks the cycle
         g = db.game()
-        if g["loop_count"] == 1 and not g["ended"]:
+        killer = db.npc_by_id(row["npc_id"]) if row["npc_id"] else None
+        if (g["has_artifact"] and g["wizard_revealed"] and not g["ended"]
+                and killer is not None and killer["is_wizard"]):
+            # §21: he kills the carrier, he takes it. No rescue, no loop.
+            out["ended"] = endings.long_game("taken")
+        elif g["loop_count"] == 1 and not g["ended"]:
             # §14: nobody dies on the ordinary day — Garrick gets there.
             out["outcome"] = "rescued"
             out["rescued"] = days.first_day_rescue()

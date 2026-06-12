@@ -773,3 +773,47 @@ packets as `what_they_know`.
   they personally witnessed this run. Asked beyond that, they don't know — and not
   knowing frightens them. Bren's prophetic clue lines (§15) remain the ONLY scripted
   exception, and the server writes those, not the GM.
+
+## 21. The Long Game — the substance, the charge, and the third door
+
+**Design-side only. Nothing in this section ever enters the GM prompt.**
+
+- **One substance** (extends §19's "one pact, one substance"): the barrier, the
+  midnight fire, the shards and the artifact are the same stuff. The shards are
+  *splinters of the artifact* — the §19 charging rule (die at the barrier holding
+  one = one charge) is the same physics at miniature scale.
+- **Death charges the substance.** A shard takes one deliberate death. The artifact
+  is the mother lode: every midnight charges it with a whole town's deaths at once.
+  No counter is tracked anywhere — *charge is loop_count*. Nothing for the GM to leak.
+- **Why Malgor never acts: inaction is accumulation.** Every loop that passes makes
+  his prize worth more, so his optimal strategy is literally nothing — twenty years
+  of nodding at passersby is him winning. This is the structural explanation for the
+  despot/husk endings: the player breaks without the villain ever pushing, because
+  he never needed to push. Time was already his employee. **Never explained to the
+  player.** A first run likely ends despot/husk/successor; the shape is only visible
+  in hindsight, which is where it belongs. It also converges with §9's "sanity does
+  not reset": speed is mercy *and* denies him charge — the moral axis and the
+  strategic axis point the same way with zero new mechanics.
+- **IDEA, not canon — the greenhouse.** The dungeon regrows nightly and enemies
+  ripen per loop because the loop is his agriculture: despair is the crop, the
+  artifact is the fruit, and a thing grown *from* the town can only be carried out
+  *by* the town — which is why he needs a desperate delver and cannot walk in
+  himself. Candidate explanation; adopt or replace before §19 ships.
+- **THE LONG GAME (ending, built in v1).** Malgor gets the artifact, by either door:
+  the player places it in his hand (`give_artifact`, explicit consent only), or he
+  kills the player who is carrying it and takes it off the corpse. He does not gloat
+  and does not explain — that would be giving the player something. He walks through
+  the barrier like a door only he ever had. That evening **the fire comes at dusk** —
+  light still in the sky, hours early. One broken rule, nothing else confirmed: the
+  schedule was him being polite. The player burns with everyone and **wakes at dawn
+  as always** — the only true player death in the design remains §19's ERASED. The
+  game is over; they are not. Epilogue at whatever sanity they left the town.
+- **The friendship asterisk.** Wendel's *real* disposition sits behind the §15 forged
+  packet, but rapport (F14) writes to it — befriending Malgor is ~40 loops of
+  genuinely speaking his language at a chicken stall, mostly possible only before
+  you know who he is. At RAPPORT_FRIEND he pauses on his way out for one human line.
+  It changes nothing. What a befriended Malgor *actually* does differently is post-v1
+  design, with the shards.
+- **Consent rule (the F6 fix):** three doors at the reveal — fight, keep, give —
+  each mapped to its own tool. The GM never maps an ambiguous line onto a door; if
+  unsure, it asks, in the fiction. He can wait. He is good at it.

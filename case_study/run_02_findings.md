@@ -88,11 +88,22 @@ Run-02's "sup loesr" landing as charm was GM dice, not character. Built:
 - GM prompt: rule 4 rewritten ("dialogue is yours; who they ARE is mostly
   theirs"), code-fence rule for all game data, numbered-options default.
 
+### F6 — "you can have it" — RESOLVED as THE LONG GAME (supersedes the
+### "kept or taken, never given" pact-law, which was rejected in design)
+Giving Malgor the artifact is now a real, consented third ending instead of
+a refusal. DESIGN.md §21 holds the glue (death charges the substance, shards
+are splinters of the artifact, why-he-never-acts explains despot/husk,
+greenhouse flagged as IDEA). Built: `give_artifact` tool (explicit consent
+only — GM must ask in the fiction if ambiguous), reveal packet rewritten to
+three doors, dying to revealed Malgor while carrying it = same ending (he
+takes it off the corpse, no rescue, no loop), the dusk-fire closing image
+(one broken rule, nothing explained), player wakes at dawn (only ERASED
+ever truly kills), hidden befriended-Malgor line at disposition ≥40.
+
 ### Still queued (priority order)
-1. F6 — diegetic reveal terms ("kept or taken, never given")
-2. F7 — 2D coordinate town map + verbatim hardening (GM redrew status bars
+1. F7 — 2D coordinate town map + verbatim hardening (GM redrew status bars
    and shop tables all run; player asked for code chunks unprompted)
-3. F8 — barrier v1
-4. F1 — difficulty + combat sim, LAST
-5. Verify in play: warm-up sweep, DAY 1 SECRECY, npc_reward in the GM's
-   hands → run-03 should reach midnight.
+2. F8 — barrier v1
+3. F1 — difficulty + combat sim, LAST
+4. Verify in play: warm-up sweep, DAY 1 SECRECY, npc_reward, rapport, and
+   the three-door reveal → run-03 should reach midnight.
