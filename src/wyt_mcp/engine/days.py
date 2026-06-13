@@ -84,6 +84,9 @@ def first_day_rescue() -> dict:
     loop 1, Captain Garrick gets them out — barely. The first death the
     player experiences must be everyone's, at midnight."""
     underground = db.game()["area"] == "dungeon"
+    saw_seal = db.conn().execute(
+        "SELECT 1 FROM rooms WHERE floor=0 AND room_type='seal' AND visited=1"
+    ).fetchone() is not None
     db.set_player(hp=1)
     db.set_game(area="town", location="watch_house")
     town.visit("watch_house")
@@ -103,6 +106,18 @@ def first_day_rescue() -> dict:
         gm += (" And understand what it cost him: he went back down into the "
                "dungeon that killed his men, alone, after twenty years, to "
                "drag them out. He will not talk about it first.")
+    if saw_seal:
+        # The player stood in the seal room and watched the door open from
+        # the other side — the one report Garrick can't carry himself.
+        gm += (" The player saw the inner seal open from the other side, and "
+               "Garrick knows better than anyone alive what that means. He "
+               "does not ask them to rest — he orders it, and he leaves them "
+               "with an errand: at first light, walk to the chapel and tell "
+               "Father Bren exactly what came through that door. Bren made "
+               "the seal; he has to hear it opened from the inside. Let the "
+               "errand stand as the player's plan when they sleep.")
+        db.log_event("Garrick's errand: at first light, tell Father Bren "
+                     "what came through the seal. (loop 1)")
     return {"saved_by": "garrick", "hp": 1, "location": "watch_house",
             "gm_note": gm}
 

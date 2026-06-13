@@ -473,23 +473,30 @@ def statuses_of(npc_id: int) -> list[str]:
 # exactly what this person can truthfully know about the loop. Wendel gets a
 # median line like everyone else — a missing entry would itself be a tell.
 WHAT_THEY_KNOW = {
-    "garrick": ("Twenty years ago he led men into the depths and came back "
-                "the only survivor of the second floor. The chapel sealed "
-                "the way down; the watch boarded the mouth and has kept "
-                "people off it since. His firsthand knowledge is real and "
-                "twenty years stale — the dungeon the loop opens REARRANGES "
-                "nightly, and it didn't used to. Below his old second-floor "
-                "mark he knows nothing. He knows the name Malgor only from "
-                "the proclamation; he has checked the watch records twice "
-                "by lamplight, and there is nothing. Of the eight he lost, "
-                "the youngest was Tam Eddar, nineteen. Tam's sister still "
-                "keeps a room off Crooked Lane; Garrick has quietly looked "
-                "out for her for twenty years, and neither of them has ever "
-                "said why out loud."),
+    "garrick": ("Twenty years ago he led eight men into the depths and came "
+                "back the only survivor of the second floor — he is the one "
+                "person in town who counts the years out loud. After, Father "
+                "Bren performed the rite that sealed the way down, and the "
+                "watch boarded the mouth above it. Garrick and Bren are the "
+                "only living souls who know a sealed door exists below the "
+                "boards; to everyone else there are only boards. His "
+                "firsthand knowledge is real and twenty years stale — the "
+                "dungeon the loop opens REARRANGES nightly, and it didn't "
+                "used to. Below his old second-floor mark he knows nothing. "
+                "He knows the name Malgor only from the proclamation; he has "
+                "checked the watch records twice by lamplight, and there is "
+                "nothing. He does not give his dead men's names to strangers "
+                "— they are 'my men', nothing more, unless the player "
+                "carries the locket (see locket_note)."),
     "tobias":  ("Hears everyone's accounts over the bar, so he knows the "
-                "town's mood better than anyone. No secret lore — just a "
-                "barman's arithmetic of who is fraying and who is pretending "
-                "not to."),
+                "town's mood better than anyone. Of the dungeon he knows "
+                "only the boards version the whole town knows: an expedition "
+                "went under the hill back before he kept this bar, one man "
+                "came back, and the watch boarded the mouth. He has never "
+                "heard of any seal. Pressed for more, he points at the watch "
+                "house — Garrick was there; Tobias pours drinks. No secret "
+                "lore beyond that — just a barman's arithmetic of who is "
+                "fraying and who is pretending not to."),
     "marta":   ("Knows her stock, her forge, and that both reset every "
                 "morning, which she does not talk about. Nothing else."),
     "petra":   ("Knows her herbs and what the fire does to a body — she has "
@@ -499,25 +506,34 @@ WHAT_THEY_KNOW = {
                 "recluse off Crooked Lane who doesn't always come for her "
                 "bread. Nothing else."),
     "eddar":   ("Her brother Tam went under the hill with Garrick's "
-                "expedition twenty years ago and never came back — no body, "
-                "nothing to bury. Garrick has looked in on her ever since "
-                "and neither of them has ever said why out loud. She knows "
-                "her own four walls, her needlework, and Sela's bread. "
-                "Nothing else."),
+                "expedition and never came back — no body, nothing to bury. "
+                "She does not count the years; she measures them in loaves, "
+                "and in how long the blue paint on her door has been "
+                "flaking. Garrick has looked in on her ever since and "
+                "neither of them has ever said why out loud. She knows her "
+                "own four walls, her needlework, and Sela's bread. Nothing "
+                "else — and nothing of any seal."),
     "bren":    ("Keeper of the inner seal: he performed the rite that closed "
-                "the way down twenty years ago, after Garrick's men didn't "
-                "come back, and he holds its key. He did NOT know anything "
-                "was living against the other side of his door. From loop 2: "
-                "his key burned to nothing an instant BEFORE the voice spoke "
-                "— he is the first in town to understand that whatever did "
-                "this wants the dungeon open. Scripture has nothing for "
-                "this. He knows the name Malgor only from the proclamation. "
-                "(Anything stranger he says comes only from server-provided "
-                "clue lines — never invent prophecy for him.)"),
+                "the way down — the year Garrick's men didn't come back — "
+                "and he holds its key. Outside his chapel only Garrick knows "
+                "the rite ever happened; the town knows boards, nothing "
+                "more, and Bren has kept it that way. He did NOT know "
+                "anything was living against the other side of his door. "
+                "From loop 2: his key burned to nothing an instant BEFORE "
+                "the voice spoke — he is the first in town to understand "
+                "that whatever did this wants the dungeon open. Scripture "
+                "has nothing for this. He knows the name Malgor only from "
+                "the proclamation. (Anything stranger he says comes only "
+                "from server-provided clue lines — never invent prophecy "
+                "for him.)"),
     "dorrin":  ("Knows his ledgers, which stopped adding up the day the "
                 "world started repeating. Nothing else."),
     "wendel":  ("Knows his chickens and his little shelf of charms. He knows "
-                "the name Malgor only from the proclamation, like everyone."),
+                "the name Malgor only from the proclamation, like everyone. "
+                "Asked about the dungeon he gives the boards version in one "
+                "sentence and goes back to his stones. He answers in short "
+                "sentences or not at all, never volunteers, never theorizes "
+                "— the least curious man in town, and content to be."),
 }
 
 # How each NPC likes to be spoken to. Authored and stable across loops —
@@ -583,7 +599,9 @@ def npc_packet(npc_key: str, loop_count: int, rng: random.Random) -> dict | None
         "memories": memories_for(n["id"]),
         "what_they_know": WHAT_THEY_KNOW.get(
             n["key"], "Only what everyone knows: the proclamation, the fire, "
-                      "the resets."),
+                      "the resets, and that the dungeon mouth has been "
+                      "boarded up since before most of them cared. Nobody "
+                      "has heard of any seal."),
         "manner": MANNER.get(n["key"], "Ordinary courtesy."),
     }
     if n["is_wizard"] and not g["wizard_revealed"]:
